@@ -29,7 +29,7 @@ def normpdf(x, mu, sigma):
     y = float(str((1 / Decimal(str((math.sqrt(2 * math.pi) * abs(sigma))))) * Decimal(str(-u * u / 2)).exp()))
     return y
 
-        
+
 
 class Param(object):
     """Holds parameter values neccessary to calculate expected number of
@@ -56,13 +56,13 @@ class Param(object):
     (read_len - softclipped) ultimately means the number ofbases from a read that needs to reside
     within a contig in order to be considered as mapped to that contig.
     """
-    def __init__(self,mean,stddev,cov,read_len,softclipped):
+    def __init__(self, mean, stddev, cov, read_len, softclipped):
         self.mean = mean
         self.stddev = stddev
         self.read_len = read_len
         self.cov = cov
-        self.softclipped = softclipped 
-        self.readfrequency = 2*self.read_len/self.cov
+        self.softclipped = softclipped
+        self.readfrequency = 2 * self.read_len / self.cov
 
 
 def ExpectedLinks(len1, len2, d, param):
@@ -78,13 +78,13 @@ def ExpectedLinks(len1, len2, d, param):
     # therefore we count with gap = max(d,0)
     gap = max(d, 0)
     #Specifying input arguments
-    b1 = (len1 + len2 + gap + 2*param.softclipped - param.mean) / std_dev
+    b1 = (len1 + len2 + gap + 2 * param.softclipped - param.mean) / std_dev
     a1 = (max(len1, len2) + gap + (param.read_len - param.softclipped) - param.mean) / std_dev
-    b2 = (min(len1, len2) + gap + (param.read_len - param.softclipped)  - param.mean) / std_dev
-    a2 = (gap + 2*(param.read_len - param.softclipped) - param.mean) / std_dev
+    b2 = (min(len1, len2) + gap + (param.read_len - param.softclipped) - param.mean) / std_dev
+    a2 = (gap + 2 * (param.read_len - param.softclipped) - param.mean) / std_dev
     def Part(a, b):
         expr1 = (min(len1, len2) - (param.read_len - param.softclipped)) / param.readfrequency * normcdf(a, 0, 1)
-        expr2 = - (- param.softclipped) / param.readfrequency * normcdf(b, 0, 1)
+        expr2 = -(-param.softclipped) / param.readfrequency * normcdf(b, 0, 1)
         expr3 = (b * std_dev) / param.readfrequency * (normcdf(b, 0, 1) - normcdf(a, 0, 1))
         expr4 = (std_dev / param.readfrequency) * (normpdf(b, 0, 1) - normpdf(a, 0, 1))
         value = expr1 + expr2 + expr3 + expr4
@@ -103,11 +103,10 @@ if __name__ == "__main__":
     arg_parser.add_argument("len1", type=int, help="Contig1 length.")
     arg_parser.add_argument("len2", type=int, help="Contig2 length.")
     arg_parser.add_argument("d", type=int, help="Gap size")
-    
-    
+
+
 
     args = arg_parser.parse_args()
 
-    param = Param(args.mean,args.stddev,args.cov,args.readlen,args.soft)
-    print param.readfrequency
+    param = Param(args.mean, args.stddev, args.cov, args.readlen, args.soft)
     print ExpectedLinks(args.len1, args.len2, args.d, param)
