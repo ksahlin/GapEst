@@ -1,6 +1,7 @@
 import sys,os
 import matplotlib.pyplot as plt
 import random
+import numpy as np
 
 def AlignContigs(ref,query,outfolder):
     
@@ -152,7 +153,8 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
             if true_gap_dict[cont_pair] < max_min_obs[0]:
                 max_min_obs[0] = true_gap_dict[cont_pair]
                 
-            
+
+
     ## Dot plot ##
     
     p1 = plt.plot(true, est, 'o',color = 'black')
@@ -172,6 +174,41 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
     plt.savefig(os.path.join(outfolder,assembler+'.png'))
     print 'Nr gaps: ', nr_gaps/2
     
+    ############
+    # heat dot plot
+
+    from scipy.stats import gaussian_kde
+
+    x = np.array(true)
+    y = np.array(est)
+    # Generate fake data
+    #x = np.random.normal(size=1000)
+    #y = x * 3 + np.random.normal(size=1000)
+
+    # Calculate the point density
+    xy = np.vstack([x,y])
+    z = gaussian_kde(xy)(xy)
+
+    fig, ax = plt.subplots()
+    ax.scatter(x, y, c=z, s=100, edgecolor='')
+    plt.savefig(os.path.join(outfolder,'heat_'+assembler+'.png'))
+    ###########
+
+    ########
+    # R-squared
+    import scikits.statsmodels.api as sm
+    fig, ax = plt.subplots()
+    results = sm.OLS(y,sm.add_constant(x)).fit()
+
+    print results.summary()
+
+    plt.scatter(x,y)
+
+    X_plot = np.linspace(-500,2000,100)
+    plt.plot(X_plot, X_plot*results.params[0] + results.params[1])
+
+    plt.savefig(os.path.join(outfolder,'Rsquared_'+assembler+'.png'))   
+
     return()
 
 def GetGapDifferenceAll(true_gap_file,assembly_gap_file,sopra_gap_file,assembler):
