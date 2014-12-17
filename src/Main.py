@@ -26,7 +26,7 @@ def ReadInContigseqs(contigfile):
     cont_dict[accession]=temp
     return(cont_dict)
 
-def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev):
+def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev, bayesian):
     from time import time    
     tot_start=time()
 #create list of list f that will print all scaffolds, contiger in 
@@ -57,7 +57,7 @@ def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev):
         sigma=False
     (G,Contigs,Scaffolds,F,scaffold_indexer)=CG.PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_length)      #Create graph, single out too short contigs/scaffolds and store 
             
-    GC.GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support)
+    GC.GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesian)
 
 
 
@@ -90,12 +90,13 @@ if __name__ == '__main__':
     
     parser.add_option("-e",dest="edgesupport", nargs=1, default=10,
                       help="treshold value for the least nr of links that is needed to create an edge ",type="int")
-       
+    parser.add_option("--bayesian",dest="bayesian", nargs=1, default=False,
+                      help="treshold value for the least nr of links that is needed to create an edge ",type="int")     
     (options, args) = parser.parse_args()       
         
 
 
     #options.qacomputefile not needed yet, is not implemented yet
-    Main(options.contigfile,options.bamfiles,options.mean,options.edgesupport,options.readlen,options.relweight,options.stddev)
+    Main(options.contigfile,options.bamfiles,options.mean,options.edgesupport,options.readlen,options.relweight,options.stddev,options.bayesian)
         
         

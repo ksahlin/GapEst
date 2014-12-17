@@ -4,7 +4,7 @@ from scipy.special import erf
 from scipy.stats import norm
 from scipy.constants import pi
 from math import exp
-def GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support):
+def GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesian):
     gap_mean=0
     gap_obs=0
     gap_obs2=0
@@ -24,18 +24,21 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support):
             largest_obs_mean = sum(sorted_observations[-10:])/10.0
             #print largest_obs_mean,smallest_obs_mean
             if nr_links >= edge_support and largest_obs_mean-smallest_obs_mean < 6*sigma:
-                d_ML,stdErr=CalcMLvaluesOfdGeneral(obs_list,mean,sigma,read_length,c1_len,c2_len,nr_links)               
+                if bayesian: 
+                    d_hat,stdErr=CalcMLvaluesOfdGeneralBayesian(obs_list,mean,sigma,read_length,c1_len,c2_len,nr_links)
+                else:
+                    d_hat,stdErr=CalcMLvaluesOfdGeneral(obs_list,mean,sigma,read_length,c1_len,c2_len,nr_links)               
                 
-                gap_obs+=d_ML
-                gap_obs2+=d_ML**2
+                gap_obs+=d_hat
+                gap_obs2+=d_hat**2
                 gap_counter+=1
                 warn = 0
                 if c1_len < 2*sigma and c2_len < 2*sigma:
                     warn = 1
                 if warn == 1:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_ML) +'\t'+str(nr_links)+'\tw'
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\tw'
                 else:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_ML) +'\t'+str(nr_links)+'\t-'
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\t-'
 
 
             elif nr_links < edge_support:
@@ -90,7 +93,7 @@ def CalcMLvaluesOfdGeneral(obs_list,mean,stdDev,readLen,c1Len,c2Len,nr_links):
     #get observation    
     data_observation=(nr_links*mean -int(sum(obs_list)))/float(nr_links)
     #do binary search among values
-    d_upper=int(mean+2*stdDev-2*readLen)
+    d_upper=int(mean+4*stdDev-2*readLen)
     d_lower=-10*stdDev
     while d_upper-d_lower>1:
         d_ML=(d_upper+d_lower)/2.0
@@ -101,6 +104,30 @@ def CalcMLvaluesOfdGeneral(obs_list,mean,stdDev,readLen,c1Len,c2Len,nr_links):
         else:
             d_lower=d_ML
 
-    
     d_ML=(d_upper+d_lower)/2.0
     return int(round(d_ML,0)),0
+
+def CalcMLvaluesOfdGeneralBayesian(obs_list,mean,stdDev,readLen,c1Len,c2Len,nr_links):
+    #get observation    
+    data_observation=(nr_links*mean -int(sum(obs_list)))/float(nr_links)
+    #do binary search among values
+    d_upper=int(mean+4*stdDev-2*readLen)
+    d_lower=-10*stdDev
+    while d_upper-d_lower>1:
+        d_MAP=(d_upper+d_lower)/2.0
+        func_of_d=BayesianEquation(obs_list,d_MAP,mean,stdDev,c1Len,c2Len,readLen)
+        #print d_MAP,func_of_d
+        if func_of_d>data_observation:
+            d_upper=d_MAP
+        else:
+            d_lower=d_MAP
+
+    d_MAP=(d_upper+d_lower)/2.0
+    return int(round(d_MAP,0)),0  
+
+def BayesianEquation(obs_list,d,mean,stdDev,c1Len,c2Len,readLen):
+    ML_value = funcDGeneral(obs_list,d,mean,stdDev,c1Len,c2Len,readLen)
+    prior_value = stdDev**2 * (1/ (1- norm.cdf(d,mean,stdDev))) * norm.pdf(d,mean,stdDev)
+
+    return ML_value + prior_value
+ 
