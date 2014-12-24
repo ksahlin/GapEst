@@ -5,6 +5,7 @@ Created on Sep 23, 2011
 '''
 #import numpy
 
+import sys
 #import Contig,Scaffold
 
 def ReadInContigseqs(contigfile):
@@ -26,7 +27,7 @@ def ReadInContigseqs(contigfile):
     cont_dict[accession]=temp
     return(cont_dict)
 
-def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev, bayesian):
+def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev, bayesian, naive):
     from time import time    
     tot_start=time()
 #create list of list f that will print all scaffolds, contiger in 
@@ -57,7 +58,7 @@ def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev, bayesian)
         sigma=False
     (G,Contigs,Scaffolds,F,scaffold_indexer)=CG.PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_length)      #Create graph, single out too short contigs/scaffolds and store 
             
-    GC.GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesian)
+    GC.GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesian, naive)
 
 
 
@@ -90,13 +91,19 @@ if __name__ == '__main__':
     
     parser.add_option("-e",dest="edgesupport", nargs=1, default=10,
                       help="treshold value for the least nr of links that is needed to create an edge ",type="int")
-    parser.add_option("--bayesian",dest="bayesian", nargs=1, default=False,
-                      help="treshold value for the least nr of links that is needed to create an edge ",type="int")     
+    parser.add_option("--bayesian",dest="bayesian", default=False,
+                      help="Solve gap estimation of bayesian probability. ",type="int")     
+    parser.add_option("--naive",dest="naive", default=False,
+                      help="Solve naive gap estimation ",type="int")     
+
     (options, args) = parser.parse_args()       
-        
+       
+    if (options.naive and options.bayesian):
+        print 'Can only use one type of estimation both naive and bayesian specified, exiting'
+        sys.exit() 
 
 
     #options.qacomputefile not needed yet, is not implemented yet
-    Main(options.contigfile,options.bamfiles,options.mean,options.edgesupport,options.readlen,options.relweight,options.stddev,options.bayesian)
+    Main(options.contigfile,options.bamfiles,options.mean,options.edgesupport,options.readlen,options.relweight,options.stddev,options.bayesian, options.naive)
         
         
