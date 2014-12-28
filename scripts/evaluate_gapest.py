@@ -121,6 +121,11 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
         for line in gap_file:
             contig1 = line.split()[0].strip()
             contig2 = line.split()[1].strip()
+            try:
+                if line.split()[4].strip()[:2] == 'w1':
+                    continue
+            except IndexError:
+                pass
             #if line.split()[4].strip()[:2] == 'w1':
             #    print line
             #    continue

@@ -27,9 +27,9 @@ def main(args):
             #if not os.path.exists(est_type_out):
             #    os.makedirs(est_type_out)
             if est_type == 'naive':
-                os.popen("python /home/kris/git_repos/GapEst/src/Main.py 1 -c {0} -f {1} -m 2600 -s 1325 -e 5 -r 30 --naive 1 > {2} ".format(ctgs, bam_file, os.path.join(outdir, est_type+'.gaps') ))
+                os.popen("python /home/kris/git_repos/GapEst/src/Main.py 1 -c {0} -f {1} -m 2600 -s 1325 -e 10 -r 30 --naive 1 > {2} ".format(ctgs, bam_file, os.path.join(outdir, est_type+'.gaps') ))
             else:
-                os.popen("python /home/kris/git_repos/GapEst/src/Main.py 1 -c {0} -f {1} -m 2600 -s 1325 -e 5 -r 30 >  {2} ".format(ctgs,bam_file, os.path.join(outdir, est_type+'.gaps')) )
+                os.popen("python /home/kris/git_repos/GapEst/src/Main.py 1 -c {0} -f {1} -m 2600 -s 1325 -e 10 -r 30 >  {2} ".format(ctgs,bam_file, os.path.join(outdir, est_type+'.gaps')) )
 
             ## plot results
             os.popen("python /home/kris/git_repos/GapEst/scripts/evaluate_gapest.py --comparegaps {4}/true_gaps/truegaps.gaps {0} {1}_{2} {3}".format(os.path.join(outdir, est_type+'.gaps'), assembly, est_type, plotfolder,outdir))
