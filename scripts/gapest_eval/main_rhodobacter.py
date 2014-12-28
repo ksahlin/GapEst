@@ -32,7 +32,7 @@ def main(args):
                 os.popen("python /home/kris/git_repos/GapEst/src/Main.py 1 -c {0} -f {1} -m 2600 -s 1325 -e 5 -r 30 >  {2} ".format(ctgs,bam_file, os.path.join(outdir, est_type+'.gaps')) )
 
             ## plot results
-            os.popen("python /home/kris/git_repos/GapEst/scripts/evaluate_gapest.py --comparegaps /tmp/gapest_simulated/{0}/true_gaps/truegaps.gaps {0} {1}_{2} {3}".format(os.path.join(outdir, est_type+'.gaps'), assembly, est_type, plotfolder))
+            os.popen("python /home/kris/git_repos/GapEst/scripts/evaluate_gapest.py --comparegaps {4}/true_gaps/truegaps.gaps {0} {1}_{2} {3}".format(os.path.join(outdir, est_type+'.gaps'), assembly, est_type, plotfolder,outdir))
 	
 
 if __name__ == '__main__':
