@@ -158,24 +158,29 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
 
 
     ## Dot plot ##
-    
+    x_axis_min, x_axis_max = min(map(lambda x: true_gap_dict[x], true_gap_dict)) - 100, max(map(lambda x: true_gap_dict[x], true_gap_dict)) + 100
+    y_axis_min, y_axis_max = min(map(lambda x: assembly_gap_dict[x], assembly_gap_dict)) - 100, max(map(lambda x: assembly_gap_dict[x], assembly_gap_dict)) + 100
+    #x_axis_min, x_axis_max =  -100, 3200
+    #y_axis_min, y_axis_max = -500, 4000
+
     p1 = plt.plot(true, est, 'o',color = 'black')
-    x=[]
-    y=[]
-    for i in range(max_min_obs[0]-100,max_min_obs[1]+100):
-        x.append(i)
-        y.append(i)
+    # x=[]
+    # y=[]
+    # for i in range(max_min_obs[0]-100,max_min_obs[1]+100):
+    #     x.append(i)
+    #     y.append(i)
     #plt.legend([len( p1)], ["nr of estimations"])
     plt.ylabel('Estimated gap') 
     plt.xlabel('True gap')  
     plt.title(assembler)
     plt.legend( )
     #p2 =plt.plot(x, y, '--', color = 'grey',)
-    X_plot = np.linspace(-500,5000,100)
+    X_plot = np.linspace(x_axis_min, x_axis_max ,100)
     p2 =plt.plot(X_plot, X_plot, '--', color = 'grey',)
     s = 'Number of observations = '+str(len(true)/2)
-    plt.text(max_min_obs[0]+100, max_min_obs[1]-100, s, fontdict=None)
-
+    plt.text(x_axis_min+200, y_axis_max-500, s, fontdict=None)
+    plt.ylim((y_axis_min, y_axis_max))
+    plt.xlim((x_axis_min, x_axis_max))
     
     # ############
     # # heat dot plot
@@ -207,7 +212,7 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
 
     #plt.scatter(x,y)
 
-    X_plot = np.linspace(-500,5000,100)
+    X_plot = np.linspace(x_axis_min, x_axis_max ,100)
     plt.plot(X_plot, X_plot*results.params[0] + results.params[1])
 
 

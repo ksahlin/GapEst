@@ -40,7 +40,7 @@ def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev, bayesian,
     Contigs={}
     #print cont_theshold
         
-    import CreateGraph as CG
+    import CreateGraph_updated as CG
     import GapCalculator as GC
     #Read in the sequences of the contigs in memory
     contigfile=open(contigfile_,'r')
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     parser.add_option("-c", dest="contigfile",
                       help="file of contigs",type="string")
     
-    parser.add_option("-e",dest="edgesupport", nargs=1, default=10,
+    parser.add_option("-e",dest="edgesupport", default=10,
                       help="treshold value for the least nr of links that is needed to create an edge ",type="int")
     parser.add_option("--bayesian",dest="bayesian", default=False,
                       help="Solve gap estimation of bayesian probability. ",type="int")     

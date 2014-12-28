@@ -13,14 +13,13 @@ def main(args):
         ## Get true gaps
         #os.popen("python scripts/evaluate_gapest.py --getgaps /tmp/gapest_simulated/genome.fa /tmp/gapest_simulated/ctgs.fa /tmp/gapest_simulated/{0}/true_gaps".format(distr))
         ## Get estimated gaps     
-        #for est_type in ['gapest', 'naive']:
-        for est_type in [ 'naive']:
-            if not os.path.exists("/tmp/gapest_simulated/{0}/{1}/".format(distr,est_type)):
-                os.makedirs("/tmp/gapest_simulated/{0}/{1}/".format(distr,est_type))
-            if est_type == 'naive':
-                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c /tmp/gapest_simulated/ctgs.fa -f /tmp/gapest_simulated/{0}/mapped.bam -m 2000 -s 500 -e 10 -r 30 --naive 1 > /tmp/gapest_simulated/{0}/{1}/{1}.gaps ".format(distr,est_type) )
-            else:
-                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c /tmp/gapest_simulated/ctgs.fa -f /tmp/gapest_simulated/{0}/mapped.bam -m 2000 -s 500 -e 10 -r 30 >  /tmp/gapest_simulated/{0}/{1}/{1}.gaps".format(distr,est_type) )
+        for est_type in ['gapest', 'naive']:
+            # if not os.path.exists("/tmp/gapest_simulated/{0}/{1}/".format(distr,est_type)):
+            #     os.makedirs("/tmp/gapest_simulated/{0}/{1}/".format(distr,est_type))
+            # if est_type == 'naive':
+            #     os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c /tmp/gapest_simulated/ctgs.fa -f /tmp/gapest_simulated/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 30 --naive 1 > /tmp/gapest_simulated/{0}/{1}/{1}.gaps ".format(distr,est_type) )
+            # else:
+            #     os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c /tmp/gapest_simulated/ctgs.fa -f /tmp/gapest_simulated/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 30 >  /tmp/gapest_simulated/{0}/{1}/{1}.gaps".format(distr,est_type) )
 
             ## plot results
             os.popen("python scripts/evaluate_gapest.py --comparegaps /tmp/gapest_simulated/{0}/true_gaps/truegaps.gaps /tmp/gapest_simulated/{0}/{1}/{1}.gaps {0}_{1} {2}".format(distr,est_type, plotfolder))

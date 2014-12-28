@@ -61,7 +61,8 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesia
             smallest_obs_mean = sum(sorted_observations[0:10])/10.0
             largest_obs_mean = sum(sorted_observations[-10:])/10.0
             #print largest_obs_mean,smallest_obs_mean
-            if filtered_observations >= edge_support and largest_obs_mean-smallest_obs_mean < 6*sigma:
+             
+            if (len(filtered_observations) >= edge_support) and (largest_obs_mean-smallest_obs_mean < 6*sigma):
                 if bayesian: 
                     d_hat,stdErr=CalcMLvaluesOfdGeneralBayesian(filtered_observations,mean,sigma,read_length,c1_len,c2_len,nr_links)
                 
