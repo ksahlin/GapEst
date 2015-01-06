@@ -133,8 +133,7 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
         
         
         # Create the link edges in the graph by fetching info from bam file
-        
-        fishy_edges = defaultdict(int)
+
 
         def nr_softclipps(read):
             max_soft = 0
@@ -170,16 +169,23 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                 matepos = read2.pos
                 cont2_len = Contigs[contig2].length
                 s2len = Scaffolds[scaf2].s_length 
-                (obs,scaf_side1,scaf_side2)=PosDirCalculatorPE(cont_dir1,read_dir,cont1_pos,readpos,s1len,cont1_len,cont_dir2,mate_dir,cont2_pos,matepos,s2len,cont2_len,read_len) 
+                (obs,scaf_side1,scaf_side2, (o1,o2))=PosDirCalculatorPE(cont_dir1,read_dir,cont1_pos,readpos,s1len,cont1_len,cont_dir2,mate_dir,cont2_pos,matepos,s2len,cont2_len,read_len) 
                 if obs < mean+ 6*std_dev: 
                     if (scaf2,scaf_side2) not in G[(scaf1,scaf_side1)]:
-                        G.add_edge((scaf2,scaf_side2),(scaf1,scaf_side1),nr_links=1,gap_dist=[obs])
+                        G.add_edge((scaf2,scaf_side2),(scaf1,scaf_side1),nr_links=1,gap_dist=[obs],obs_pos=set((o1,o2)) )
+
                     #print 'Added edge'
                     else:
-                        G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['nr_links'] += 1
-                        #print 'edge'
-                        G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['gap_dist'].append(obs)                         
-        #print 'Max softclipps:', global_max_softclipps
+                        if (o1,o2) in G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['obs_pos']:
+                            #print 'detected duplicate'
+                            continue
+                        else:
+                            G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['nr_links'] += 1
+                            G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['gap_dist'].append(obs)  
+                            G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['obs_pos'].add((o1,o2))  
+                            G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['obs_pos'].add((o2,o1))  
+
+        print 'Max softclipps:', global_max_softclipps
     
     AddEdges(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len)
 
@@ -241,7 +247,7 @@ def PosDirCalculatorPE(cont_dir1,read_dir,cont1pos,readpos,s1len,cont1_len,cont_
         scaf_side1 = 'R'
     if read_side2 == 'R':
         scaf_side2 = 'R'
-    return(obs,scaf_side1,scaf_side2)
+    return(obs,scaf_side1,scaf_side2,(gap1,gap2))
 
 
 

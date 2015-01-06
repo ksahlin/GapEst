@@ -61,7 +61,7 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesia
             smallest_obs_mean = sum(sorted_observations[0:10])/10.0
             largest_obs_mean = sum(sorted_observations[-10:])/10.0
             #print largest_obs_mean,smallest_obs_mean
-             
+
             if (len(filtered_observations) >= edge_support) and (largest_obs_mean-smallest_obs_mean < 6*sigma):
                 if bayesian: 
                     d_hat,stdErr=CalcMLvaluesOfdGeneralBayesian(filtered_observations,mean,sigma,read_length,c1_len,c2_len,nr_links)
@@ -79,11 +79,13 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesia
                 if c1_len < 2*sigma and c2_len < 2*sigma:
                 #     warn = 1
                 # if warn == 1:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\tw1'
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\tw1,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
+                elif c1_len < (2*sigma + read_length) or c2_len < (2*sigma + read_length):
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(len(filtered_observations))+'\tw3:c1_len={0}c2_len={1},{2}'.format(c1_len, c2_len, len(filtered_observations))    
                 elif filtered_observations < sorted_observations:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(len(filtered_observations))+'\tw2:prev_nr_links:{0},links_after_filter:{1}'.format(nr_links,len(filtered_observations))
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(len(filtered_observations))+'\tw2:prev_nr_links:{0},links_after_filter:{1},c1_len={3}c2_len={4},{2}'.format(nr_links,len(filtered_observations), filtered_observations,c1_len,c2_len)                
                 else:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\t-'
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\t-,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
 
 
             elif nr_links < edge_support:
@@ -93,6 +95,7 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesia
                     
     print 'w1 : Both contig lengths were smaller than 2*std_dev of lib (heuristic threshold set by me from experience). This can give shaky estimations in some cases.'
     print 'w2 : GapEst filtered out at least one extreme outlier in observation (potential mismapping or misassembly) before calculating gap esitmation.'
+    print 'w3 : One contig is smaller than sigma + read_length. Estimation can be shaky. Use naive estimation instead'
     print 'e1 : No gap was calculated. Number of links were lower than specified min nr of links parameter: -e <min nr links> (default 10). Lower this value if necessary (estimations may become unstable)'
     print 'e2 : No gap was calculated. The spread of the links throughout the contig is to far (i.e largest_obs_mean-smallest_obs_mean < 6*sigma ), suggesting errors in mapping on this region.',
                 

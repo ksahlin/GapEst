@@ -1,4 +1,5 @@
 import sys,os,subprocess
+import random
 
 import argparse
 from genomics_tools.file_formats import bam,fasta
@@ -31,12 +32,15 @@ def simulate_instance(args):
 
         #contigs
         ctgs = open(contig_path,'w')
-        for ctg in contigs.generate_contigs(g.sequence,args.min_contig, args.max_contig, 0,3000):
+        ctg_list = [x for x in contigs.generate_contigs(g.sequence,args.min_contig, args.max_contig, 0,3000)]
+        random.shuffle( ctg_list )
+
+        for ctg in ctg_list:
             ctgs.write(ctg)
     else:
         g = genome.Genome([0.25]*4,args.genomelen,'genome1')
         #print genome_path, args.genomelen
-        for acc,seq in fasta.fasta_iter(open(genome_path,'r')):
+        for acc,seq in  fasta.fasta_iter(open(genome_path,'r')):
             #print acc, seq
             g.sequence = seq
             g.accession = acc
@@ -73,8 +77,8 @@ def simulate_instance(args):
 
     print 'Started mapping'
     #mapping
-    align.map_paired_reads(read1_path, read2_path, contig_path, bam_path, args)
-    #align.bwa_mem(read1_path, read2_path, contig_path, bam_path, args)
+    #align.map_paired_reads(read1_path, read2_path, contig_path, bam_path, args)
+    align.bwa_mem(read1_path, read2_path, contig_path, bam_path, args)
 
 def main(args):
     successful_experiments = 0

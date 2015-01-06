@@ -3,26 +3,30 @@ import sys,os,subprocess
 import argparse
 
 def main(args):
+    main_folder = '/tmp/gapest_simulated_small'
     plotfolder = '/tmp/gapest_simulated/plots'
     if not os.path.exists(plotfolder):
         os.makedirs(plotfolder)
 
     for distr in ['normal', 'uniform', 'mix']:
         ## simulate instance
-        #os.popen("python scripts/simulate_data.py 2000000 1000 4000 {0} 50 100 /tmp/gapest_simulated/{0}/ -sort  --mean 2000 --sd 500 --contigs /tmp/gapest_simulated/ctgs.fa --genome /tmp/gapest_simulated/genome.fa ".format(distr))
+        print "simulate reads and map for {0}".format(distr)
+        os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/simulate_data.py 2000000 1000 4000 {0} 50 100 {1}/{0}/ -sort  --mean 2000 --sd 500 --contigs {1}/ctgs.fa --genome {1}/genome.fa ".format(distr,main_folder))
         ## Get true gaps
-        #os.popen("python scripts/evaluate_gapest.py --getgaps /tmp/gapest_simulated/genome.fa /tmp/gapest_simulated/ctgs.fa /tmp/gapest_simulated/{0}/true_gaps".format(distr))
+        print "Get true gaps for {0}".format(distr)
+        os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/evaluate_gapest.py --getgaps {1}/genome.fa {1}/ctgs.fa {1}/{0}/true_gaps".format(distr,main_folder))
         ## Get estimated gaps     
+        print "Get estimated gaps for {0}".format(distr)
         for est_type in ['gapest', 'naive']:
-            # if not os.path.exists("/tmp/gapest_simulated/{0}/{1}/".format(distr,est_type)):
-            #     os.makedirs("/tmp/gapest_simulated/{0}/{1}/".format(distr,est_type))
-            # if est_type == 'naive':
-            #     os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c /tmp/gapest_simulated/ctgs.fa -f /tmp/gapest_simulated/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 30 --naive 1 > /tmp/gapest_simulated/{0}/{1}/{1}.gaps ".format(distr,est_type) )
-            # else:
-            #     os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c /tmp/gapest_simulated/ctgs.fa -f /tmp/gapest_simulated/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 30 >  /tmp/gapest_simulated/{0}/{1}/{1}.gaps".format(distr,est_type) )
+            if not os.path.exists("{3}/{0}/{1}/".format(distr,est_type)):
+                os.makedirs("{3}/{0}/{1}/".format(distr,est_type))
+            if est_type == 'naive':
+                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 20 --naive 1 > {2}/{0}/{1}/{1}.gaps ".format(distr,est_type,main_folder) )
+            else:
+                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 20 >  {2}/{0}/{1}/{1}.gaps".format(distr,est_type, main_folder) )
 
             ## plot results
-            os.popen("python scripts/evaluate_gapest.py --comparegaps /tmp/gapest_simulated/{0}/true_gaps/truegaps.gaps /tmp/gapest_simulated/{0}/{1}/{1}.gaps {0}_{1} {2}".format(distr,est_type, plotfolder))
+            os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/evaluate_gapest.py --comparegaps {3}/{0}/true_gaps/truegaps.gaps {3}/{0}/{1}/{1}.gaps {0}_{1} {2}".format(distr,est_type, plotfolder,main_folder))
 	
 
 if __name__ == '__main__':

@@ -2,6 +2,7 @@ import sys,os
 import matplotlib.pyplot as plt
 import random
 import numpy as np
+#from GapEst.src import CreateGraph_updated
 
 def AlignContigs(ref,query,outfolder):
     
@@ -28,17 +29,20 @@ def GetGaps(agf_file,assembler,outfolder):
     prev_gap = 0
     for line in agf_file:
         if line[0] == '>':
+            prev_cont_id = None
+            sec_prev_cont_id = None
+            prev_gap = 0
             continue
         columns = line.split('\t')
         align_cov = columns[4]
         perc_id = columns[5]
-        if float(align_cov) > 90 and float(perc_id) > 90:
+        if float(align_cov) > 99 and float(perc_id) > 99:
             cont_id = columns[7].strip()
             gap = columns[2].strip()
-            if prev_cont_id and int(prev_gap) < 3600 + 2*300 :
+            if prev_cont_id and int(prev_gap) < 7000 + 2*300 :
                 print >>outfile, prev_cont_id.strip()+'\t'+cont_id+'\t'+prev_gap
                 gap2 = int(sec_prev_gap)+prev_cont_len+ int(prev_gap)
-                if sec_prev_cont_id and gap2 < 3600 + 2*300 :
+                if sec_prev_cont_id and gap2 < 7000 + 2*300 :
                     print >>outfile, sec_prev_cont_id.strip()+'\t'+cont_id+'\t'+str(gap2)
             sec_prev_cont_id =  prev_cont_id
             prev_cont_id = cont_id 
@@ -113,7 +117,7 @@ def MapWithBWA(PE1,PE2,contigs,assembler):
     return()
 
 def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
-    def GetGaps(gapfile):
+    def read_in_gaps(gapfile):
         gapdict = {}
         gap_file = open(gapfile,'r')
         #skip header
@@ -122,7 +126,7 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
             contig1 = line.split()[0].strip()
             contig2 = line.split()[1].strip()
             try:
-                if line.split()[4].strip()[:2] == 'w1':
+                if line.split()[4].strip()[:2] == 'w1' or line.split()[4].strip()[:2] == 'w3':
                     continue
             except IndexError:
                 pass
@@ -138,8 +142,8 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
             gapdict[(contig2,contig1)] = gap
         return(gapdict)
             
-    true_gap_dict = GetGaps(true_gap_file)    
-    assembly_gap_dict = GetGaps(assembly_gap_file) 
+    true_gap_dict = read_in_gaps(true_gap_file)    
+    assembly_gap_dict = read_in_gaps(assembly_gap_file) 
     true = []
     est = [] 
     nr_gaps = 0
@@ -163,8 +167,8 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
 
 
     ## Dot plot ##
-    x_axis_min, x_axis_max = min(map(lambda x: true_gap_dict[x], true_gap_dict)) - 100, max(map(lambda x: true_gap_dict[x], true_gap_dict)) + 100
-    y_axis_min, y_axis_max = min(map(lambda x: assembly_gap_dict[x], assembly_gap_dict)) - 100, max(map(lambda x: assembly_gap_dict[x], assembly_gap_dict)) + 100
+    x_axis_min, x_axis_max = min(map(lambda x: x, true)) - 100, max(map(lambda x: x, true)) + 100
+    y_axis_min, y_axis_max = min(map(lambda x: x, est)) - 100, max(map(lambda x: x, est)) + 100
     #x_axis_min, x_axis_max =  -100, 3200
     #y_axis_min, y_axis_max = -500, 4000
 
@@ -328,6 +332,10 @@ def ShuffleContigs(contigfile,assembler):
         print >>scr_cont, '>'+acc+'\n'+cont
         
     return()
+
+#def plot_insert_sizes(bam_file,outfile_path):
+
+
 def RunSOPRA(contigs,PE1,PE2,outfolder):
     #prep step
     os.popen("perl ../../SOPRA_v1.4.6/combiner.pl "+PE1+' '+PE2+' > ../../SOPRA_v1.4.6/PE.fasta' )
@@ -356,6 +364,8 @@ if __name__ == '__main__':
         print 'python GetGaps.py --map <PE1> <PE2> <ref> <assembler>:\t runs and outputs all gap estimations'
         print 'python GetGaps.py --runsopra <contig file> <PE1> <PE2> <outfolder>:\t runs and outputs all gap estimations from sopra'
         print 'python GetGaps.py --shuffle <contig file> <assembler>:\t shuffles contigs in contig file'
+        print 'python GetGaps.py --histogram <bam file> <outfile>:\t Get histogram of insert sizes.'
+
     if sys.argv[1]=='--getgaps':
         if not os.path.exists(sys.argv[4]):
             os.makedirs(sys.argv[4])
@@ -369,6 +379,8 @@ if __name__ == '__main__':
         GetGapDifference(sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
     if sys.argv[1]=='--map':
         MapWithBWA(sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
+    if sys.argv[1]=='--histogram':
+        plot_insert_sizes(sys.argv[2],sys.argv[3])
         
     if sys.argv[1]=='--rungapest':
         RunGapEst(sys.argv[2],sys.argv[3],sys.argv[4])
