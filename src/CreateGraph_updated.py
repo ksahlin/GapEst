@@ -176,9 +176,16 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
 
                     #print 'Added edge'
                     else:
-                        if (o1,o2) in G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['obs_pos']:
-                            #print 'detected duplicate'
+                        try:
+                            if (o1,o2) in G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['obs_pos']:
+                                continue
+                        except KeyError:
+                            #print G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]
                             continue
+
+                        # if (o1,o2) in G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['obs_pos']:
+                        #     #print 'detected duplicate'
+                        #     continue
                         else:
                             G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['nr_links'] += 1
                             G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['gap_dist'].append(obs)  
@@ -186,10 +193,11 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                             G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['obs_pos'].add((o2,o1))  
 
         print 'Max softclipps:', global_max_softclipps
+        return global_max_softclipps
     
-    AddEdges(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len)
+    max_softclipps = AddEdges(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len)
 
-    return(G,Contigs,Scaffolds,F,scaffold_indexer)
+    return(G,Contigs,Scaffolds,F,scaffold_indexer,max_softclipps)
 
 def RemoveBugEdges(G,fishy_edges):
     edges_removed = 0

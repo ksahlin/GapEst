@@ -8,7 +8,7 @@ from mapping import align
 from genomics_tools.file_formats.various_annotations import to_AGP,to_GFF
 
 def simulate_instance(args):
-    print 'Started simulating'
+    #print 'Started simulating'
     if not os.path.exists(args.output_path):
         os.makedirs(args.output_path)
     
@@ -25,7 +25,7 @@ def simulate_instance(args):
 
     if not args.contigs:
         #genome
-        print args.genomelen
+        #print args.genomelen
         g = genome.Genome([0.25]*4,args.genomelen,'genome1')
         g.genome()
         print >> open(genome_path,'w'), g.genome_fasta_format()
@@ -58,7 +58,7 @@ def simulate_instance(args):
     elif args.distr == 'mix':
         lib_part1 = reads.DNAseq(args.read_length ,args.coverage/2, distribution='normal', mean=args.mean,stddev=args.sd)
         lib_part1.simulate_pe_reads(g)
-        lib_part2 = reads.DNAseq(args.read_length ,args.coverage/2, distribution='uniform', min_size=(args.mean - 3*args.sd),max_size=(args.mean + 3*args.sd))
+        lib_part2 = reads.DNAseq(args.read_length ,args.coverage/2, distribution='uniform', min_size=(args.mean - 4*args.sd),max_size=(args.mean + 4*args.sd))
         lib_part2.simulate_pe_reads(g)
         # concatenate the reads from each distribution
         lib = reads.DNAseq(args.read_length ,args.coverage, distribution=args.distr, mean=args.mean,stddev=args.sd)
@@ -75,7 +75,7 @@ def simulate_instance(args):
             reads2.write(read)
         i+=1
 
-    print 'Started mapping'
+    #print 'Started mapping'
     #mapping
     #align.map_paired_reads(read1_path, read2_path, contig_path, bam_path, args)
     align.bwa_mem(read1_path, read2_path, contig_path, bam_path, args)

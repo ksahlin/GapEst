@@ -3,27 +3,44 @@ import sys,os,subprocess
 import argparse
 
 def main(args):
-    main_folder = '/tmp/gapest_simulated_small'
+    main_folder = '/tmp/gapest_simulated'
     plotfolder = '/tmp/gapest_simulated/plots'
     if not os.path.exists(plotfolder):
         os.makedirs(plotfolder)
 
     for distr in ['normal', 'uniform', 'mix']:
-        ## simulate instance
-        print "simulate reads and map for {0}".format(distr)
-        os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/simulate_data.py 2000000 1000 4000 {0} 50 100 {1}/{0}/ -sort  --mean 2000 --sd 500 --contigs {1}/ctgs.fa --genome {1}/genome.fa ".format(distr,main_folder))
-        ## Get true gaps
-        print "Get true gaps for {0}".format(distr)
-        os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/evaluate_gapest.py --getgaps {1}/genome.fa {1}/ctgs.fa {1}/{0}/true_gaps".format(distr,main_folder))
-        ## Get estimated gaps     
+        if not os.path.exists("{1}/{0}/".format(distr,main_folder)):
+            os.makedirs("{1}/{0}/".format(distr,main_folder))
+
+        # ## simulate instance
+        # print "simulate reads and map for {0}".format(distr)
+        # if distr == 'uniform':
+        #     os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/simulate_data.py 2000000 1000 4000 {0} 50 100 {1}/{0}/ -sam  --min_size 0 --max_size 4000 --contigs {1}/ctgs.fa --genome {1}/genome.fa > /dev/null ".format(distr,main_folder))
+        # else:
+        #     os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/simulate_data.py 2000000 1000 4000 {0} 50 100 {1}/{0}/ -sam  --mean 2000 --sd 500 --contigs {1}/ctgs.fa --genome {1}/genome.fa > /dev/null ".format(distr,main_folder))
+
+        # print "SAM to BAM, then sort and index for {0}".format(distr)
+        # os.popen("samtools view -bS {1}/{0}/mapped.sam > {1}/{0}/tmp.bam".format(distr,main_folder))
+        # os.popen("samtools sort  {1}/{0}/tmp.bam {1}/{0}/mapped".format(distr,main_folder))
+        # os.popen("samtools index  {1}/{0}/mapped.bam".format(distr,main_folder))
+
+        # ## align to reference
+        # os.popen("python /Users/ksahlin/Documents/workspace/generate_assembly/mapping/align.py {1}/{0}/reads1.fa {1}/{0}/reads2.fa {1}/genome.fa  {1}/mapped_ref  ".format(distr,main_folder))
+        # ## plot histogram of insert sizes on reference
+        # os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/evaluate_gapest.py --histogram {1}/mapped_ref.bam {2}/{0}_hist.png".format(distr,main_folder,plotfolder))
+        
+        # ## Get true gaps
+        # print "Get true gaps for {0}".format(distr)
+        # os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/evaluate_gapest.py --getgaps {1}/genome.fa {1}/ctgs.fa {1}/{0}/true_gaps 3200".format(distr,main_folder))
+        # ## Get estimated gaps     
         print "Get estimated gaps for {0}".format(distr)
         for est_type in ['gapest', 'naive']:
-            if not os.path.exists("{3}/{0}/{1}/".format(distr,est_type)):
-                os.makedirs("{3}/{0}/{1}/".format(distr,est_type))
+            if not os.path.exists("{2}/{0}/{1}/".format(distr,est_type,main_folder)):
+                os.makedirs("{2}/{0}/{1}/".format(distr,est_type,main_folder))
             if est_type == 'naive':
-                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 20 --naive 1 > {2}/{0}/{1}/{1}.gaps ".format(distr,est_type,main_folder) )
+                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 100 --naive 1 > {2}/{0}/{1}/{1}.gaps ".format(distr,est_type,main_folder) )
             else:
-                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 20 >  {2}/{0}/{1}/{1}.gaps".format(distr,est_type, main_folder) )
+                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m 2000 -s 500 -e 5 -r 100 >  {2}/{0}/{1}/{1}.gaps".format(distr,est_type, main_folder) )
 
             ## plot results
             os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/evaluate_gapest.py --comparegaps {3}/{0}/true_gaps/truegaps.gaps {3}/{0}/{1}/{1}.gaps {0}_{1} {2}".format(distr,est_type, plotfolder,main_folder))

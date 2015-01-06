@@ -56,9 +56,11 @@ def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev, bayesian,
         sigma=std_dev
     else:
         sigma=False
-    (G,Contigs,Scaffolds,F,scaffold_indexer)=CG.PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_length)      #Create graph, single out too short contigs/scaffolds and store 
-            
-    GC.GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesian, naive)
+    (G,Contigs,Scaffolds,F,scaffold_indexer, max_softclipps)=CG.PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_length)      #Create graph, single out too short contigs/scaffolds and store 
+    
+    read_length_minus_max_softclipps = read_length - max_softclipps
+
+    GC.GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length_minus_max_softclipps,edge_support,bayesian, naive)
 
 
 
