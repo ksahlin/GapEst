@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import random
 import numpy as np
-from src import CreateGraph_updated
+from src import CreateGraph_updated,GapCalculator
 
 def AlignContigs(ref,query,outfolder):
     
@@ -181,11 +181,11 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
     ## Dot plot ##
     x_axis_min, x_axis_max = min(map(lambda x: x, true)) - 100, max(map(lambda x: x, true)) + 100
     y_axis_min, y_axis_max = min(map(lambda x: x, est)) - 100, max(map(lambda x: x, est)) + 100
-    x_axis_min, x_axis_max =  -100, 3200
-    y_axis_min, y_axis_max = -500, 4000
+    #x_axis_min, x_axis_max =  -500, 4000
+    #y_axis_min, y_axis_max = -500, 4000
     color_range = range(0, max(nr_obs_list))
-
-    p1 = plt.scatter(true, est, c=nr_obs_list, cmap=plt.cm.coolwarm_r) # ,'o') #,color = 'black')
+    nr_obs_list_truncated = map(lambda x: min(x,50),nr_obs_list)
+    p1 = plt.scatter(true, est, c=nr_obs_list_truncated, cmap=plt.cm.coolwarm_r) # ,'o') #,color = 'black')
     plt.colorbar()
     # x=[]
     # y=[]
@@ -351,10 +351,16 @@ def plot_insert_sizes(bamfile,outfile_path):
     bam_object = CreateGraph_updated.BamParser(bamfile)
     i_sizes = []
     for read in bam_object.aligned_reads('bwa'):
-        if read.is_read1:
+        if read.is_read1 and CreateGraph_updated.is_proper_aligned_unique_innie(read):
             i_sizes.append(abs(read.tlen))
 
-    plt.hist(i_sizes,bins=100)
+    filtered_observations = GapCalculator.remove_misalignments(i_sizes,10)
+    n_isize = float(len(filtered_observations))
+    mean_isize = sum(filtered_observations) / n_isize
+    std_dev_isize = (sum(list(map((lambda x: x ** 2 - 2 * x * mean_isize + mean_isize ** 2), filtered_observations))) / (n_isize - 1)) ** 0.5
+
+    print 'mean:{0}, sd:{1}'.format(mean_isize,std_dev_isize)
+    plt.hist(filtered_observations,bins=100)
     plt.ylabel('frequency') 
     plt.xlabel('fragment size')  
     dist = outfile_path.split('/')[-1].split('.')[0]

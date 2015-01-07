@@ -40,7 +40,7 @@ def is_unique_read_link(read):
     # and read.opt('XT')=='U' and not read.is_secondary and read.rlen != read.alen:
     #     print read
     return not read.is_unmapped and not read.mate_is_unmapped and read.rname != read.mrnm \
-    and read.mapq > 20 and not read.is_secondary
+    and read.mapq > 30 and not read.is_secondary
 
 
 
