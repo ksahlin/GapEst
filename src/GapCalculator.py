@@ -47,7 +47,7 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,effective_read_length,edge_suppo
     gap_obs=0
     gap_obs2=0
     gap_counter=0
-    print 'CONTIG1\tCONTIG2\tGAP_ESTIMATION\tNUMBER_OF_OBSERVATIONS\tWARNINGS/ERRORS'
+    print 'CONTIG1\tCONTIG2\tGAP_ESTIMATION\tNUMBER_OF_OBSERVATIONS\tC1LEN\tC2LEN\tWARNINGS/ERRORS'
     for edge in G.edges_iter():
         if G[edge[0]][edge[1]]['nr_links'] != None:
             c1=edge[0][0]
@@ -80,13 +80,13 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,effective_read_length,edge_suppo
                 if c1_len < 2*sigma and c2_len < 2*sigma:
                 #     warn = 1
                 # if warn == 1:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\tw1,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\t'+str(c1_len)+'\t'+str(c2_len)+'\tw1,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
                 elif c1_len < (2*sigma + effective_read_length) or c2_len < (2*sigma + effective_read_length):
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(len(filtered_observations))+'\tw3:c1_len={0}c2_len={1},{2}'.format(c1_len, c2_len, len(filtered_observations))    
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(len(filtered_observations))+'\t'+str(c1_len)+'\t'+str(c2_len)+'\tw3:c1_len={0}c2_len={1},{2}'.format(c1_len, c2_len, len(filtered_observations))    
                 elif filtered_observations < sorted_observations:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(len(filtered_observations))+'\tw2:prev_nr_links:{0},links_after_filter:{1},c1_len={3}c2_len={4},{2}'.format(nr_links,len(filtered_observations), filtered_observations,c1_len,c2_len)                
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(len(filtered_observations))+'\t'+str(c1_len)+'\t'+str(c2_len)+'\tw2:prev_nr_links:{0},links_after_filter:{1},c1_len={3}c2_len={4},{2}'.format(nr_links,len(filtered_observations), filtered_observations,c1_len,c2_len)                
                 else:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\t-,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\t'+str(c1_len)+'\t'+str(c2_len)+'\t-,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
 
 
             elif nr_links < edge_support:
@@ -143,8 +143,8 @@ def CalcMLvaluesOfdGeneral(obs_list,mean,stdDev,readLen,c1Len,c2Len,nr_links):
     #get observation    
     data_observation=(nr_links*mean -int(sum(obs_list)))/float(nr_links)
     #do binary search among values
-    d_upper=int(mean+90*stdDev-2*readLen)
-    d_lower=-20*stdDev
+    d_upper=int(mean+4*stdDev-2*readLen)
+    d_lower=-6*stdDev
     while d_upper-d_lower>1:
         d_ML=(d_upper+d_lower)/2.0
         func_of_d=funcDGeneral(obs_list,d_ML,mean,stdDev,c1Len,c2Len,readLen)

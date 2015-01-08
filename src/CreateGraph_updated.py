@@ -40,7 +40,7 @@ def is_unique_read_link(read):
     # and read.opt('XT')=='U' and not read.is_secondary and read.rlen != read.alen:
     #     print read
     return not read.is_unmapped and not read.mate_is_unmapped and read.rname != read.mrnm \
-    and read.mapq > 30 and not read.is_secondary
+    and not read.is_secondary and read.mapq >= 10
 
 
 
@@ -170,7 +170,7 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                 cont2_len = Contigs[contig2].length
                 s2len = Scaffolds[scaf2].s_length 
                 (obs,scaf_side1,scaf_side2, (o1,o2))=PosDirCalculatorPE(cont_dir1,read_dir,cont1_pos,readpos,s1len,cont1_len,cont_dir2,mate_dir,cont2_pos,matepos,s2len,cont2_len,read_len) 
-                if obs < mean+ 6*std_dev: 
+                if obs < mean+ 4*std_dev: 
                     if (scaf2,scaf_side2) not in G[(scaf1,scaf_side1)]:
                         G.add_edge((scaf2,scaf_side2),(scaf1,scaf_side1),nr_links=1,gap_dist=[obs],obs_pos=set((o1,o2)) )
 
