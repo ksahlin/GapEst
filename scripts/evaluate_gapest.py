@@ -26,13 +26,32 @@ def AlignContigs(ref,query,outfolder):
 
 class Contig(object):
     """docstring for Contig"""
-    def __init__(self, accession,start,stop, length, direction):
+    def __init__(self, ref, accession,start,stop, length, direction, first_gap):
         super(Contig, self).__init__()
+        self.ref = ref
         self.accession = accession
         self.start = start
         self.stop = stop
         self.length = length
-        self.dir = direction
+        self.direction = direction
+        self.first_gap = first_gap
+        assert self.start < self.stop
+
+    def gap_and_orientation(self,contig2):
+        gap = contig2.start - self.stop - 1
+
+        if self.direction == '+':
+            c1_orientation = '+'  # upstream link wrt contig1
+        else: 
+            c1_orientation = '-'  # downstream link wrt contig1
+
+        if contig2.direction == '+':
+            c2_orientation = '-' # contig2 comes after contig one, hence a downstream link wrt contig2
+        else:
+            c2_orientation = '+'
+
+        return gap, c1_orientation, c2_orientation 
+
 
         
 
@@ -43,25 +62,33 @@ class TrueGapContainer(object):
         self.agf_file = agf_file
         self.outfile = open( os.path.join(outfolder, 'truegaps.gaps'),'w')
         self.contigs = []
-        self.max_gap = max_gap
+        self.max_gap = int(max_gap)
 
         
     def create_contigs(self):
         for line in self.agf_file:
             if line[0] == '>': 
-                continue
+                ref = line[1:].split()[0]
             else:
-                start, stop, gap, length, aln_cov, aln_perc_id, direction, accession = tuple(line.split('\t') )
-                if float(align_cov) > 99 and float(perc_id) > 99:
-                    c = Contig(accession,int(start),int(stop), int(length), direction)
+                start, stop, gap, length, aln_cov, perc_id, direction, accession = tuple(line.strip().split('\t') )
+                if float(aln_cov) > 99 and float(perc_id) > 99:
+                    c = Contig(ref, accession, int(start), int(stop), int(length), direction, int(gap))
                     self.contigs.append(c)
         agf_file.seek(0)
 
     def create_true_gaps(self):
-        for i,ctg in enumerate(self.contigs):
-            for ctg2 in self.contigs:
-                if acc != acc2:
-                    if ctg.start 
+        for i,ctg1 in enumerate(self.contigs[:-1]):
+            for ctg2 in self.contigs[i+1:]:
+                if ctg1.ref != ctg2.ref:
+                    break
+
+                gap, c1_side, c2_side = ctg1.gap_and_orientation(ctg2)
+                
+                if gap > self.max_gap:
+                    break
+                else:
+                    print >>self.outfile, "{0}\t{1}\t{2}\t{3}\t{4}".format(ctg1.accession, ctg2.accession, gap, c1_side, c2_side)
+
 
 
 
@@ -440,7 +467,7 @@ def RunSOPRA(contigs,PE1,PE2,outfolder):
 
 if __name__ == '__main__':
     import sys
-    if sys.argv[1] == '--help':
+    if len(sys.argv) == 1 or sys.argv[1] == '--help':
         print 'Usage\n\n'
         print 'python GetGaps.py --getgaps <ref> <query> <outfolder> <maxgap>:\t gives gaps between all successive aligned contig on a reference genome'
         print 'python GetGaps.py --getsopragaps <Scaffolds> <contigs>:\t gives gaps between all successive aligned contig onto the scaffolds create by sopra.'
@@ -451,12 +478,20 @@ if __name__ == '__main__':
         print 'python GetGaps.py --runsopra <contig file> <PE1> <PE2> <outfolder>:\t runs and outputs all gap estimations from sopra'
         print 'python GetGaps.py --shuffle <contig file> <assembler>:\t shuffles contigs in contig file'
         print 'python GetGaps.py --histogram <bam file> <outfile>:\t Get histogram of insert sizes.'
-
+        sys.exit()
     if sys.argv[1]=='--getgaps':
-        if not os.path.exists(sys.argv[4]):
-            os.makedirs(sys.argv[4])
-        agf_file ,assembler = AlignContigs(sys.argv[2],sys.argv[3],sys.argv[4])
-        GetGaps(agf_file,assembler,sys.argv[4], int(sys.argv[5]))
+        outfolder = sys.argv[4]
+        max_gap = int(sys.argv[5])
+        if not os.path.exists(outfolder):
+            os.makedirs(outfolder)
+
+        agf_file ,assembler = AlignContigs(sys.argv[2],sys.argv[3],outfolder)
+
+        #GetGaps(agf_file,assembler,outfolder, max_gap))
+
+        container = TrueGapContainer( agf_file, outfolder, max_gap)
+        container.create_contigs()
+        container.create_true_gaps()
     if sys.argv[1]=='--getsopragaps':
         GetGapsOfScaffolder(sys.argv[2],sys.argv[3])
     if sys.argv[1]=='--comparegapsall':

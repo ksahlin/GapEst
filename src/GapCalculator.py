@@ -143,8 +143,8 @@ def CalcMLvaluesOfdGeneral(obs_list,mean,stdDev,readLen,c1Len,c2Len,nr_links):
     #get observation    
     data_observation=(nr_links*mean -int(sum(obs_list)))/float(nr_links)
     #do binary search among values
-    d_upper=int(mean+4*stdDev-2*readLen)
-    d_lower=-6*stdDev
+    d_upper= max(int(mean+4*stdDev-2*readLen), 2*readLen)
+    d_lower= min(-int(mean+4*stdDev-2*readLen), -2*readLen) 
     while d_upper-d_lower>1:
         d_ML=(d_upper+d_lower)/2.0
         func_of_d=funcDGeneral(obs_list,d_ML,mean,stdDev,c1Len,c2Len,readLen)
