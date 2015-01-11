@@ -8,7 +8,7 @@ import pysam
 import Contig,Scaffold
 import networkx as nx
 from collections import defaultdict
-import os
+import os,sys
 
 ##
 # Opens a .bam or .sam file and returns the file
@@ -143,6 +143,7 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
             return max_soft
 
         global_max_softclipps = 0
+        global_min_obs = 100000 
 
         for read1,read2 in bam_object.unique_reads_on_different_references():
             contig1=bam_object.bam_file.getrname(read1.rname)
@@ -173,7 +174,10 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                 if obs < mean+ 4*std_dev: 
                     if (scaf2,scaf_side2) not in G[(scaf1,scaf_side1)]:
                         G.add_edge((scaf2,scaf_side2),(scaf1,scaf_side1),nr_links=1,gap_dist=[obs],obs_pos=set((o1,o2)) )
-
+                        if o1 < global_min_obs:
+                            global_min_obs = o1
+                        if o2 < global_min_obs:
+                            global_min_obs = o2 
                     #print 'Added edge'
                     else:
                         try:
@@ -192,7 +196,13 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                             G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['obs_pos'].add((o1,o2))  
                             G.edge[(scaf1,scaf_side1)][(scaf2,scaf_side2)]['obs_pos'].add((o2,o1))  
 
+                            if o1 < global_min_obs:
+                                global_min_obs = o1
+                            if o2 < global_min_obs:
+                                global_min_obs = o2
+
         print 'Max softclipps:', global_max_softclipps
+        print 'Min obs:', global_min_obs
         return global_max_softclipps
     
     max_softclipps = AddEdges(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len)

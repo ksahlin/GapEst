@@ -24,12 +24,12 @@ def main(args):
         ## Get estimated gaps     
         for est_type in ['gapest', 'naive']:
             if est_type == 'naive':
-                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {0} -f {1} -m 2563 -s 1336 -e 5 -r 101 --naive 1 > {2} ".format(ctgs, bam_file, os.path.join(outdir, est_type+'.gaps') ))
+                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {0} -f {1} -m 2000 -s 2000 -e 2 -r 101 --naive 1 > {2} ".format(ctgs, bam_file, os.path.join(outdir, est_type+'.gaps') ))
             else:
-                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {0} -f {1} -m 2563 -s 1336 -e 5 -r 101 >  {2} ".format(ctgs,bam_file, os.path.join(outdir, est_type+'.gaps')) )
-
+                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {0} -f {1} -m 2000 -s 2000 -e 2 -r 101 >  {2} ".format(ctgs,bam_file, os.path.join(outdir, est_type+'.gaps')) )
+            print 'PPPAPATHHTH:',os.path.join(outdir, est_type+'.gaps')
             ## plot results
-            os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/evaluate_gapest.py --comparegaps {4}/true_gaps/truegaps.gaps {0} {1}_{2} {3}".format(os.path.join(outdir, est_type+'.gaps'), assembly, est_type, plotfolder,outdir))
+            os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/evaluate_gapest.py --comparegaps {4}/true_gaps/truegaps.gaps {0} {1}_{2} {3} > /tmp/plots_out.stdout".format(os.path.join(outdir, est_type+'.gaps'), assembly, est_type, plotfolder,outdir))
 	
 
 if __name__ == '__main__':

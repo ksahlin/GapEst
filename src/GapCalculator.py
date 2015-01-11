@@ -1,4 +1,7 @@
 import sys
+import random 
+
+import numpy as np
 import Contig,Scaffold
 from scipy.special import erf
 from scipy.stats import norm
@@ -6,6 +9,24 @@ from scipy.constants import pi
 from math import exp
 
 from mathstats.normaldist.normal import MaxObsDistr
+from mathstats.normaldist.truncatedskewed import param_est
+
+def subsample_gap_est(observations,mean,sigma, effective_read_length, c1_len, c2_len):
+    
+    gap_estimations = []
+    #print observations, c1_len,c2_len
+    for i in range(20):
+        sample_size = max(int(len(observations)*random.uniform(0,1)),1) # let sample size be 20% or the initial nr of observations
+        subsample = [ observations[i] for i in sorted(random.sample(xrange(len(observations)),sample_size )) ]
+        o_mean = int(sum(subsample)/len(subsample))
+        d_hat = int(param_est.GapEstimator(mean,sigma, effective_read_length, o_mean, c1_len, c2_len))
+        gap_estimations.append(d_hat)
+
+    gap_naive = mean - sum(observations)/len(observations)
+    index = np.argmin(map(lambda x: abs(gap_naive-x), gap_estimations))
+    # avg_gap = sum(gap_estimations) / len(gap_estimations)
+    #print gap_estimations
+    return(gap_estimations[index])
 
 
 def AdjustInsertsizeDist(mean_insert, std_dev_insert, insert_list):
@@ -47,11 +68,25 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,effective_read_length,edge_suppo
     gap_obs=0
     gap_obs2=0
     gap_counter=0
-    print 'CONTIG1\tCONTIG2\tGAP_ESTIMATION\tNUMBER_OF_OBSERVATIONS\tC1LEN\tC2LEN\tWARNINGS/ERRORS'
+    print 'CONTIG1\tCONTIG2\tGAP_ESTIMATION\tC1DIR\tC2DIR\tNUMBER_OF_OBSERVATIONS\tC1LEN\tC2LEN\tWARNINGS/ERRORS'
     for edge in G.edges_iter():
         if G[edge[0]][edge[1]]['nr_links'] != None:
             c1=edge[0][0]
             c2=edge[1][0]
+
+            c1_dir = edge[0][1]
+            c2_dir = edge[1][1]
+            #print Scaffolds[c1].contigs[0].name,Scaffolds[c2].contigs[0].name
+
+            if c1_dir == 'R':
+                c1_orientation = '+'
+            else:
+                c1_orientation = '-'
+            if c2_dir == 'R':
+                c2_orientation = '+'
+            else:
+                c2_orientation = '-'
+
             c1_len=G.node[edge[0]]['length']
             c2_len=G.node[edge[1]]['length']
             obs_list=G.edge[edge[0]][edge[1]]['gap_dist']
@@ -71,28 +106,39 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,effective_read_length,edge_suppo
                     d_hat,stdErr = mean - int(sum(filtered_observations)/len(filtered_observations)), 0 
 
                 else:
-                    d_hat,stdErr=CalcMLvaluesOfdGeneral(filtered_observations,mean,sigma,effective_read_length,c1_len,c2_len,nr_links)               
+                    o_mean = int(sum(filtered_observations)/len(filtered_observations))
+                    d_hat = int(param_est.GapEstimator(mean,sigma, effective_read_length, o_mean, c1_len, c2_len))
+                    
+                    if d_hat > mean+3*sigma -2*effective_read_length :
+                        #get average gap from subsampling
+                        d_hat = subsample_gap_est(filtered_observations, mean, sigma, effective_read_length, c1_len, c2_len)
+
+                    smallest_obs = min(filtered_observations)
+                    # no negative observations
+                    if smallest_obs +  d_hat < 2*effective_read_length:
+                        d_hat = 2*effective_read_length - smallest_obs
+
+                    #d_hat,stdErr=CalcMLvaluesOfdGeneral(filtered_observations,mean,sigma,effective_read_length,c1_len,c2_len,nr_links) 
+              
                 
                 gap_obs+=d_hat
                 gap_obs2+=d_hat**2
                 gap_counter+=1
-                #warn = 0
+
                 if c1_len < 2*sigma and c2_len < 2*sigma:
-                #     warn = 1
-                # if warn == 1:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\t'+str(c1_len)+'\t'+str(c2_len)+'\tw1,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) + '\t'+str(c1_orientation)+'\t'+str(c2_orientation)+ '\t'+str(nr_links)+'\t'+str(c1_len)+'\t'+str(c2_len)+'\tw1,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
                 elif c1_len < (2*sigma + effective_read_length) or c2_len < (2*sigma + effective_read_length):
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(len(filtered_observations))+'\t'+str(c1_len)+'\t'+str(c2_len)+'\tw3:c1_len={0}c2_len={1},{2}'.format(c1_len, c2_len, len(filtered_observations))    
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) + '\t'+str(c1_orientation)+'\t'+str(c2_orientation)+ '\t'+str(len(filtered_observations))+'\t'+str(c1_len)+'\t'+str(c2_len)+'\tw3:c1_len={0}c2_len={1},{2}'.format(c1_len, c2_len, len(filtered_observations))    
                 elif filtered_observations < sorted_observations:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(len(filtered_observations))+'\t'+str(c1_len)+'\t'+str(c2_len)+'\tw2:prev_nr_links:{0},links_after_filter:{1},c1_len={3}c2_len={4},{2}'.format(nr_links,len(filtered_observations), filtered_observations,c1_len,c2_len)                
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) + '\t'+str(c1_orientation)+'\t'+str(c2_orientation)+ '\t'+str(len(filtered_observations))+'\t'+str(c1_len)+'\t'+str(c2_len)+'\tw2:prev_nr_links:{0},links_after_filter:{1},c1_len={3}c2_len={4},{2}'.format(nr_links,len(filtered_observations), filtered_observations,c1_len,c2_len)                
                 else:
-                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) +'\t'+str(nr_links)+'\t'+str(c1_len)+'\t'+str(c2_len)+'\t-,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
+                    print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t'+str(d_hat) + '\t'+str(c1_orientation)+'\t'+str(c2_orientation)+ '\t'+str(nr_links)+'\t'+str(c1_len)+'\t'+str(c2_len)+'\t-,c1_len={0}c2_len={1},{2}'.format(c1_len,c2_len,filtered_observations)
 
 
             elif nr_links < edge_support:
-                print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t.\t.\te1'
+                print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t.' + '\t'+str(c1_orientation)+'\t'+str(c2_orientation)+ '\t.\te1'
             elif largest_obs_mean-smallest_obs_mean < 6*sigma:
-                print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t.\t.\te2'
+                print Scaffolds[c1].contigs[0].name + '\t'+ Scaffolds[c2].contigs[0].name+ '\t.' + '\t'+str(c1_orientation)+'\t'+str(c2_orientation)+ '\t.\te2'
                     
     print 'w1 : Both contig lengths were smaller than 2*std_dev of lib (heuristic threshold set by me from experience). This can give shaky estimations in some cases.'
     print 'w2 : GapEst filtered out at least one extreme outlier in observation (potential mismapping or misassembly) before calculating gap esitmation.'

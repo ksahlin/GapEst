@@ -42,12 +42,12 @@ def main(args):
             mean = distr_params[distr]['mean']
             stddev = distr_params[distr]['stddev']
 
-            if not os.path.exists("{2}/{0}/{1}/".format(distr,est_type,main_folder)):
-                os.makedirs("{2}/{0}/{1}/".format(distr,est_type,main_folder))
-            if est_type == 'naive':
-                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m {3} -s {4} -e 5 -r 100 --naive 1 > {2}/{0}/{1}/{1}.gaps ".format(distr,est_type,main_folder,mean,stddev) )
-            else:
-                os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m {3} -s {4} -e 5 -r 100 >  {2}/{0}/{1}/{1}.gaps".format(distr,est_type, main_folder,mean,stddev) )
+            # if not os.path.exists("{2}/{0}/{1}/".format(distr,est_type,main_folder)):
+            #     os.makedirs("{2}/{0}/{1}/".format(distr,est_type,main_folder))
+            # if est_type == 'naive':
+            #     os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m {3} -s {4} -e 5 -r 100 --naive 1 > {2}/{0}/{1}/{1}.gaps ".format(distr,est_type,main_folder,mean,stddev) )
+            # else:
+            #     os.popen("python /Users/ksahlin/Documents/workspace/GapEst/src/Main.py 1 -c {2}/ctgs.fa -f {2}/{0}/mapped.bam -m {3} -s {4} -e 5 -r 100 >  {2}/{0}/{1}/{1}.gaps".format(distr,est_type, main_folder,mean,stddev) )
 
             ## plot results
             os.popen("python /Users/ksahlin/Documents/workspace/GapEst/scripts/evaluate_gapest.py --comparegaps {3}/{0}/true_gaps/truegaps.gaps {3}/{0}/{1}/{1}.gaps {0}_{1} {2}".format(distr,est_type, plotfolder,main_folder))
