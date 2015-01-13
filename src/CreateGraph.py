@@ -3,7 +3,7 @@ Created on Sep 23, 2011
 
 @author: ksahlin
 '''
-
+import sys
 import pysam
 import Contig,Scaffold
 import networkx as nx
@@ -55,6 +55,7 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
         # Create the link edges in the graph by fetching info from bam file
         
         fishy_edges = defaultdict(int)
+        links_used = 0
         for alignedread in bam_file:
             try: #check that read is aligned OBS: not with is_unmapped since this flag is fishy for e.g. BWA
                 contig1=bam_file.getrname(alignedread.rname)
@@ -81,7 +82,7 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                         fishy_edges[((s2,side2),(s1,side1))] +=1
                 
                 #if contig1 in Contigs and contig2 in Contigs and Contigs[contig2].scaffold != Contigs[contig1].scaffold:
-                if contig1 != contig2 and alignedread.is_read2 and not alignedread.is_unmapped and alignedread.mapq  > 20:
+                if contig1 != contig2 and alignedread.is_read2 and not alignedread.is_unmapped and alignedread.mapq  > 10:
                     (read_dir,mate_dir) = (not alignedread.is_reverse,not alignedread.mate_is_reverse )
                     scaf1=Contigs[contig1].scaffold
                     scaf2=Contigs[contig2].scaffold                    
@@ -99,7 +100,8 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                     cont2_len = Contigs[contig2].length
                     s2len = Scaffolds[scaf2].s_length 
                     (obs,scaf_side1,scaf_side2)=PosDirCalculatorPE(cont_dir1,read_dir,cont1_pos,readpos,s1len,cont1_len,cont_dir2,mate_dir,cont2_pos,matepos,s2len,cont2_len,read_len) 
-                    if obs < mean+ 6*std_dev: 
+                    if obs < mean+ 4*std_dev: 
+                        links_used += 1
                         if (scaf2,scaf_side2) not in G[(scaf1,scaf_side1)]:
                             G.add_edge((scaf2,scaf_side2),(scaf1,scaf_side1),nr_links=1,gap_dist=[obs])
                         #print 'Added edge'
@@ -112,6 +114,8 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                 ########################Use to validate scaffold herein previous step here
                 pass
         RemoveBugEdges(G,fishy_edges)    
+        print 'Nr links used:', links_used
+        sys.exit()
     
     try:
         with pysam.Samfile(bamfile, 'rb') as bam_file:    #once real data, change to 'rb', simulated files are on SAM format
@@ -130,12 +134,15 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
 
 def RemoveBugEdges(G,fishy_edges):
     edges_removed = 0
+    link_count = 0
     for edge_tuple,nr_links in fishy_edges.items():             
         if edge_tuple[1] in G and edge_tuple[0] in G[edge_tuple[1]]:
             if nr_links >= G[edge_tuple[0]][edge_tuple[1]]['nr_links']:
+                link_count += G[edge_tuple[0]][edge_tuple[1]]['nr_links']
                 G.remove_edge(edge_tuple[0],edge_tuple[1])  
                 edges_removed += 1 
-#print 'Number of BWA buggy edges removed: ', edges_removed           
+    print 'Number of BWA buggy edges removed: ', edges_removed
+    print 'Buggy link count:', link_count           
     return()
 
 def CheckDir(cont_obj1,cont_obj2,alignedread):

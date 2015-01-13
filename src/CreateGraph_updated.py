@@ -39,8 +39,7 @@ def is_unique_read_link(read):
     # if  not read.is_unmapped and not read.mate_is_unmapped and read.rname != read.mrnm \
     # and read.opt('XT')=='U' and not read.is_secondary and read.rlen != read.alen:
     #     print read
-    return not read.is_unmapped and not read.mate_is_unmapped and read.rname != read.mrnm \
-    and not read.is_secondary and read.mapq >= 10
+    return not read.is_unmapped and not read.is_secondary and read.mapq >= 10
 
 
 
@@ -76,9 +75,9 @@ class BamParser(object):
                 #print read_pairs
                 if read.qname in read_pairs:
                     #print 'lol'
-                    #read2 = read_pairs[read.qname]
-                    #if read.tid == read2.tid:    
-                    yield read, read_pairs[read.qname]
+                    read2 = read_pairs[read.qname]
+                    if read.tid != read2.tid:    
+                        yield read, read_pairs[read.qname]
                     #else: 
                     #    pass
                     del read_pairs[read.qname]
@@ -144,7 +143,8 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
 
         global_max_softclipps = 0
         global_min_obs = 100000 
-
+        links_used = 0
+        #r_len = float(read_len)
         for read1,read2 in bam_object.unique_reads_on_different_references():
             contig1=bam_object.bam_file.getrname(read1.rname)
             contig2=bam_object.bam_file.getrname(read2.rname)
@@ -152,7 +152,11 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
             if max_soft_readpair > global_max_softclipps:
                 global_max_softclipps = max_soft_readpair
             # print read1.cigar
-
+            #if read1.qlen/r_len < 0.7 or read2.qlen/r_len < 0.7:
+            #    continue
+            #     print 'midddle1',o1, o1+o2, read1.pos, read1.mapq,read1.qlen,read1.rlen, read1.cigar, read1.tags
+            # if read2.qlen < 50:
+            #     print 'midddle2',o2, o1+o2, read2.pos, read2.mapq, read2.qlen,read2.rlen, read2.cigar, read2.tags
             if contig1 in Contigs and contig2 in Contigs:                
                 (read_dir,mate_dir) = (not read1.is_reverse,not read2.is_reverse )
                 scaf1=Contigs[contig1].scaffold
@@ -172,6 +176,7 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                 s2len = Scaffolds[scaf2].s_length 
                 (obs,scaf_side1,scaf_side2, (o1,o2))=PosDirCalculatorPE(cont_dir1,read_dir,cont1_pos,readpos,s1len,cont1_len,cont_dir2,mate_dir,cont2_pos,matepos,s2len,cont2_len,read_len) 
                 if obs < mean+ 4*std_dev: 
+                    links_used += 1
                     if (scaf2,scaf_side2) not in G[(scaf1,scaf_side1)]:
                         G.add_edge((scaf2,scaf_side2),(scaf1,scaf_side1),nr_links=1,gap_dist=[obs],obs_pos=set((o1,o2)) )
                         if o1 < global_min_obs:
@@ -200,9 +205,18 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                                 global_min_obs = o1
                             if o2 < global_min_obs:
                                 global_min_obs = o2
+                            # if o1 < 50:
+                            #     print o1, o1+o2, read1.pos, read1.mapq,read1.qlen,read1.rlen, read1.cigar, read1.tags
+                            #     #print fancy_str(read1)
+                            # if o2 < 50:
+                            #     print o2, o1+o2, read2.pos, read2.mapq, read2.qlen,read2.rlen, read2.cigar, read2.tags
+                            #     #print fancy_str(read2)                                
+                                
 
         print 'Max softclipps:', global_max_softclipps
         print 'Min obs:', global_min_obs
+        # sys.exit()
+        #print 'Nr links used:', links_used
         return global_max_softclipps
     
     max_softclipps = AddEdges(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len)

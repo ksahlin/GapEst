@@ -6,6 +6,7 @@ import numpy as np
 from src import CreateGraph_updated,GapCalculator
 #import pandas as pd
 import pylab as P
+from scipy.stats import truncnorm
 
 def AlignContigs(ref,query,outfolder):
     
@@ -275,8 +276,8 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
     ## Dot plot ##
     x_axis_min, x_axis_max = min(map(lambda x: x, true)) - 100, max(map(lambda x: x, true)) + 100
     y_axis_min, y_axis_max = min(map(lambda x: x, est)) - 100, max(map(lambda x: x, est)) + 100
-    x_axis_min, x_axis_max =  -10000, 10000
-    y_axis_min, y_axis_max = -10000, 10000
+    x_axis_min, x_axis_max =  -8000, 8000
+    y_axis_min, y_axis_max = -8000, 10500
     #x_axis_min, x_axis_max =  -500, 4000
     #y_axis_min, y_axis_max = -500, 4000
     #color_range = range(0, max(nr_obs_list))
@@ -313,9 +314,9 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
     s = 'Number of gaps = '+str(len(true))
     abs_dist_obs = map(lambda x,y: abs(x-y), true, est ) 
     abs_dist = sum(abs_dist_obs) / len(true)
-    s2 = 'Abs. dist. from diagonal ='+str(abs_dist)
-    plt.text(x_axis_min+200, y_axis_max-500, s, fontdict=None)
-    plt.text(x_axis_min+200, y_axis_max-1000, s2, fontdict=None)
+    s2 = 'Avg. dist. from diagonal ='+str(abs_dist)
+    plt.text(x_axis_min+500, y_axis_max-800, s, fontdict=None)
+    plt.text(x_axis_min+500, y_axis_max-1600, s2, fontdict=None)
 
     plt.ylim((y_axis_min, y_axis_max))
     plt.xlim((x_axis_min, x_axis_max))
@@ -357,9 +358,9 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
 
         plt.plot(X_plot, X_plot*results.params[0] + results.params[1])
     except IndexError:
-        if assembler == 'ABySS2_naive':
-            plt.plot(X_plot, X_plot*results.params[0] + -573)
-        elif assembler == 'ABySS2_gapest':
+        #if assembler == 'ABySS2_naive':
+        #    plt.plot(X_plot, X_plot*results.params[0] + -573)
+        if assembler == 'ABySS2_gapest':
             plt.plot(X_plot, X_plot*results.params[0] + 0)
 
 
@@ -371,7 +372,7 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
 
     # the histogram of the data with histtype='step'
     P.figure()
-    n, bins, patches = P.hist(abs_dist_obs, 100 ,range=[0, 10000], histtype='stepfilled')
+    n, bins, patches = P.hist(abs_dist_obs, 100 ,range=[0, 9000], histtype='stepfilled')
     P.setp(patches, 'facecolor', 'r', 'alpha', 0.75)
     P.ylabel('absolute error') 
     P.xlabel('Frequency')  
@@ -496,6 +497,7 @@ def plot_insert_sizes(bamfile,outfile_path):
     std_dev_isize = (sum(list(map((lambda x: x ** 2 - 2 * x * mean_isize + mean_isize ** 2), filtered_observations))) / (n_isize - 1)) ** 0.5
 
     print 'mean:{0}, sd:{1}'.format(mean_isize,std_dev_isize)
+    print truncnorm.fit(filtered_observations,0,7000,loc=0,scale=1)
     plt.hist(filtered_observations,bins=100)
     plt.ylabel('frequency') 
     plt.xlabel('fragment size')  

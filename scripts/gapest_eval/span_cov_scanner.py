@@ -631,7 +631,7 @@ def main(args):
 		os.makedirs(args.outfolder)
 	gff_file = open(os.path.join(args.outfolder,'estimated_misassm.gff'),'w')
 	info_file = open(os.path.join(args.outfolder,'info.txt'),'w')
-	pval_file_out = open(os.path.join(args.outfolder,'p_values.txt'),'w')
+	#pval_file_out = open(os.path.join(args.outfolder,'p_values.txt'),'w')
 
 	if args.window_size >= 1000:
 		param.window_size = args.window_size/2 
@@ -640,19 +640,18 @@ def main(args):
 
 	param.pval = args.pval
 
-	assembly_dict = ReadInContigseqs(open(args.assembly_file,'r'),param.window_size)
-	calc_p_values(args.bampath, pval_file_out, param, info_file,assembly_dict)
-	#param.corrected_pval = param.get_pval_threshold()
-	pval_file_out.close()
+	#assembly_dict = ReadInContigseqs(open(args.assembly_file,'r'),param.window_size)
+	#calc_p_values(args.bampath, pval_file_out, param, info_file,assembly_dict)
+	#pval_file_out.close()
+	param.adjusted_mean = 3278.6
 	pval_file_in = open(os.path.join(args.outfolder,'p_values.txt'),'r')
 	sv_container =  get_misassemly_regions(pval_file_in,param, info_file) #open(args.pval_file,'r')
 
-	print >> info_file, '#Estimated library params: mean:{0} sigma:{1}'.format(param.mean,param.stddev)
-	print >> info_file,'#Genome length:{0}'.format(param.scaf_lengths)
+	#print >> info_file, '#Estimated library params: mean:{0} sigma:{1}'.format(param.mean,param.stddev)
+	#print >> info_file,'#Genome length:{0}'.format(param.scaf_lengths)
 
 	sv_container.get_final_bp_info(param.window_size)
 	print >> gff_file, str(sv_container)
-	# output_breaks(sv_container)
 
 
 
