@@ -9,18 +9,18 @@ import os
 from mathstats.normaldist.normal import MaxObsDistr
 from scipy.stats import ks_2samp,norm
 import random
-import re
+#import re
 import math
 
 import pysam
 #import math
 from itertools import ifilter
-import model
+#import model
 import bisect
 
-from Queue import Queue
+from collections import deque
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from statsmodels.distributions.empirical_distribution import ECDF
 
 EMPIRICAL_BINS = 200
@@ -95,7 +95,7 @@ class Parameters(object):
 				#sample_nr+=1
 			if sample_nr > SAMPLE_SIZE:
 				break
-		print >> outfile, 'Insert size sample size:', sample_nr
+		print >> outfile, '#Insert size sample size:', sample_nr
 		bamfile.reset()
 
 		n_isize = float(len(isize_list))
@@ -113,12 +113,10 @@ class Parameters(object):
 
 		print >> outfile,'#Mean converged:', mean_isize
 		print >> outfile,'#Std_est converged: ', std_dev_isize
-
+		print >> outfile,'{0}\t{1}'.format( mean_isize, std_dev_isize)
 		self.nobs = n_isize
 		self.mean = mean_isize
 		self.stddev = std_dev_isize 
-		print self.mean
-		print self.stddev
 		self.full_ECDF = ECDF(isize_list)
 		self.adjustedECDF_no_gap = None
 		self.get_true_normal_distribution(random.sample(isize_list, min(10000,sample_nr)),outfile)
@@ -150,17 +148,10 @@ class Parameters(object):
 		self.adjusted_mean = sum(self.true_distr)/float(len(self.true_distr))
 		self.adjusted_stddev = (sum(list(map((lambda x: x ** 2 - 2 * x * self.adjusted_mean + self.adjusted_mean ** 2), self.true_distr))) / (n - 1)) ** 0.5
 
-		print >> outfile,'Corrected mean:{0}, corrected stddev:{1}'.format(self.adjusted_mean, self.adjusted_stddev)
-		# for x in range(2*(read_len-softclipps) +1,self.mean + 6*self.stddev):
-
-		# norm.pdf()
-		# min_weight, max_weight = observations[0], observations[-1]
-		
-		# total_weight = 
+		print >> outfile,'#Corrected mean:{0}, corrected stddev:{1}'.format(self.adjusted_mean, self.adjusted_stddev)
+		print >> outfile,'{0}\t{1}'.format(self.adjusted_mean, self.adjusted_stddev)
 
 
-	#def cdf(x):
-	#	return self.cdf
 
 
 	def get_weight(self,x,gap_coordinates,r,s):
@@ -242,12 +233,6 @@ class Parameters(object):
 
 		# Now create a weighted sample
 
-		# self.true_distr = []
-		# for i in range(1000):
-		# 	obs = random.uniform(0, 1)
-		# 	pos = bisect.bisect(cdf_list_normalized, obs) - 1
-		# 	self.true_distr.append(pos*stepsize + x_min)
-
 		self.true_distr = [ (bisect.bisect(cdf_list_normalized, random.uniform(0, 1) ) - 1)*stepsize + x_min for i in range(1000) ]
 
 		# initialization of no gap true distribution
@@ -299,23 +284,6 @@ class ReadContainer(object):
 		self.std_dev_isize =  (sum(list(map((lambda x: x ** 2 - 2 * x * self.mean_isize + self.mean_isize ** 2), self.isize_list))) / (n_isize - 1)) ** 0.5
 
 
-	
-	# def calc_pvalue(self,expected_insert,sigma):
-	# 	n = len(self.reads)
-	# 	if n == 0:
-	# 		return 0.5 # return a non significant p-value
-	#     #insert size
-	# 	mean_insert_obs = self.calc_observed_insert()
-	# 	# tot_insert = 0
-	# 	# for read in self.reads:
-	# 	# 	tot_insert += abs(read.tlen)
-	# 	# mean_insert_obs = tot_insert/float(n)  
-	# 	#print mean_insert_obs
-
-	# 	z = (mean_insert_obs - expected_insert)/(float(sigma)/math.sqrt(n)) # z-statistic
-	# 	p_value_upper_area = norm.sf(z) 
-	# 	#print z, p_value
-	# 	return p_value_upper_area
 
 	def calc_ks_test(self,true_distribution):
 		if len(self.isize_list) >= 5:
@@ -340,34 +308,42 @@ class BreakPointContainer(object):
 		for (sv_type, ref, i), cluster in self.clusters.iteritems():
 			if scf != ref:
 				continue
-			min_pos = min(cluster)
-			max_pos = max(cluster)
+			min_pos = cluster['min']
+			max_pos = cluster['max']
 
 			if sv_type_observed != sv_type:
 				continue
 
 			if pos <= max_pos + window_size and pos >= min_pos - window_size:
 				new_cluster = 0
-				cluster.append(pos)
-				self.clusterinfo[(sv_type,scf,i)].append((p_val,nr_obs,mean_obs))
+				cluster['pos'].append(pos)
+				if pos < min_pos:
+					 cluster['min'] = pos
+				if pos > max_pos:
+					 cluster['max'] = pos
+
+				self.clusterinfo[(sv_type,scf,i)].append((p_val,nr_obs,mean_obs,window_size))
 				break
 
 		if new_cluster:
-			self.clusters[(sv_type_observed, scf, self.index)] = [pos]
-			self.clusterinfo[(sv_type_observed, scf, self.index)] = [(p_val,nr_obs,mean_obs)]
+			self.clusters[(sv_type_observed, scf, self.index)] = {'max':pos,'min':pos,'pos':[pos]}
+			self.clusterinfo[(sv_type_observed, scf, self.index)] = [(p_val,nr_obs,mean_obs,window_size)]
 			self.index += 1
 
 
 		if len(self.clusters) == 0:
-			self.clusters[(sv_type_observed, scf, self.index)] = [pos]
-			self.clusterinfo[(sv_type_observed, scf, self.index)] = [(p_val,nr_obs,mean_obs)]
+			self.clusters[(sv_type_observed, scf, self.index)] = {'max':pos,'min':pos,'pos':[pos]}
+			self.clusterinfo[(sv_type_observed, scf, self.index)] = [(p_val,nr_obs,mean_obs,window_size)]
 			self.index += 1
 
-	def get_final_bp_info(self,window_size):
+	def get_final_bp_info(self):
 		self.final_bps = []
 		for region in self.clusters:
-			start_pos = self.clusters[region][0] - window_size
-			end_pos = self.clusters[region][-1]
+
+			avg_window_size = sum(map(lambda x:x[-1], self.clusterinfo[region]))/len(self.clusterinfo[region])
+			start_pos = self.clusters[region]['min'] #- window_size
+			end_pos = self.clusters[region]['max'] + self.clusterinfo[region][-1][-1]
+
 			#n = len(self.clusters[region])
 			#median_basepair = self.clusters[region][n/2]
 			region_pvalues = map(lambda x:x[0], self.clusterinfo[region])
@@ -376,20 +352,8 @@ class BreakPointContainer(object):
 			avg_region_nr_obs = sum(region_nr_obs)/len(region_nr_obs)
 			region_mean_obs = map(lambda x:x[2], self.clusterinfo[region])
 			avg_region_mean_obs = sum(region_mean_obs)/len(region_mean_obs)
-			# if self.clusters[region][0] >= (start_pos  + end_pos)/2:
-			# 	median_info =  self.clusterinfo[region][0]
-			# else:
-			# 	median_pos = int((start_pos  + end_pos)/2)
-			# 	i = 0
-			# 	curr_pos = 0
-			# 	while curr_pos < median_pos:
-			# 		curr_pos = self.clusters[region][i]
-			# 		i+=1
 
-			# 	median_info =  self.clusterinfo[region][i]				
-
-			self.final_bps.append( (region[1], 'GetDistr', 'FCD', start_pos, end_pos, avg_region_pvalue,'.','.','type:{0};avg_nr_span_obs:{1};mean_obs_isize:{2}'.format(region[0], avg_region_nr_obs, avg_region_mean_obs) ) )
-			#self.final_bps.append( (region[1], 'GetDistr', 'FCD', start_pos, end_pos, median_info[0],'.','.','type:{0};avg_nr_span_obs:{1};mean_obs_isize:{2}'.format(region[0], median_info[1], median_info[2]) ) )
+			self.final_bps.append( (region[1], 'GetDistr', 'FCD', start_pos, end_pos, avg_region_pvalue,'.','.','type:{0};avg_nr_span_obs:{1};mean_obs_isize:{2};window_size:{3}'.format(region[0], avg_region_nr_obs, avg_region_mean_obs, avg_window_size) ) )
 			
 
 	def __str__(self):
@@ -428,6 +392,8 @@ def calc_p_values(bamfile,outfile,param, info_file,assembly_dict):
 		current_scaf = -1
 		print >> info_file, scaf_dict
 		param.scaf_lengths = scaf_dict
+		prev_coord = (0,0)
+		duplicate_count = 0
 		for i,read in enumerate(bam_filtered):
 			if read.is_unmapped:
 				continue
@@ -435,11 +401,20 @@ def calc_p_values(bamfile,outfile,param, info_file,assembly_dict):
 				current_coord = read.pos
 				current_ref = bam.getrname(read.tid)
 
+			coord1 = read.pos
+			coord2 = read.mpos
+			if (coord1, coord2) == prev_coord:
+				continue
+			else:
+				prev_coord = (coord1, coord2)
+
 
 			if (i + 1) %100000 == 0:
 				# print i
-				print >> info_file, 'Processing coord:{0}'.format(current_coord)
-			# if (i+1) % 30000 == 0:
+				print >> info_file, '#Processing read:{0}'.format(current_coord)
+				
+			if (i+1) % 100000 == 0:
+				print >> info_file, '#removed {0} duplicates, processed {1} reads.'.format(duplicate_count,i)
 			# # # 	print 'extra!'
 			# 	break
 
@@ -470,13 +445,15 @@ def calc_p_values(bamfile,outfile,param, info_file,assembly_dict):
 	
 				# Here we only add the observations that are not
 				# further away than the pairs 1.5*param.mean < obs < 3*param.mean 
-				if abs(read.tlen) > 1.5*param.mean:
-					excluded_region_size = int(abs(read.tlen) - 1.5*param.mean)
-					#print 'LOOOOOOL'
-				else:
-					excluded_region_size = 0
 
+				# if abs(read.tlen) > 1.5*param.mean:
+				# 	excluded_region_size = int(abs(read.tlen) - 1.5*param.mean)
+				# 	#print 'LOOOOOOL'
+				# else:
+				# 	excluded_region_size = 0
 
+				excluded_region_size = 0
+				
 				if read.tlen > 0:
 					inner_start_pos = read.aend
 					inner_end_pos = read.mpos
@@ -527,152 +504,241 @@ def calc_p_values(bamfile,outfile,param, info_file,assembly_dict):
 					del container[-1]
 
 
-	#plt.hist(p_values,bins=50)
-	#plt.show()
 
+class Window(object):
+	"""docstring for Window"""
+	def __init__(self,pval_thresh, max_size):
+		super(Window, self).__init__()
+		self.queue = deque() 
+		self.avg_mean = None
+		self.nr_significant = 0
+		self.nr_in_window = 0
+		self.pval_thresh = pval_thresh
+		self.avg_pval = 0
+		self.max_window_size = max_size
 
-# def get_misassembly_clusters(container,param):
-# 	# tot_mean = 0
-# 	# nr_obs =0
-# 	# est = model.NormalModel(param.mean,param.stddev,100,s_inner=0)
-# 	# # exp_stddev =  lagg till test av forvantad standard avvikelse
-# 	# exp_insert = float(est.expected_mean(1,param.scaf_lengths))
-# 	# #exp_insert =  mu+ (sigma**2)/float(mu + 1)
-# 	# print '#Average predicted mean over a base pair under p_0: {0}'.format(exp_insert)
-# 	##
-# 	# need to select a consensus loci for a breakpoint
-# 	# using only insert size 
-# 	sv_container = BreakPointContainer(param)
-# 	p_values = []
-# 	#pval_threshold = param.get_pval_threshold()
-# 	#print "#Adjusted threshold: {0}".format(pval_threshold)
-# 	for bp in range(param.scaf_lengths):
-
-
-# 		#p_val_upper_area = container[bp].calc_pvalue(exp_insert,param.stddev)
-
-# 		# do KS-2sample test
-# 		avg_isize = container[bp].calc_observed_insert()
-# 		KS_statistic, two_side_p_val = container[bp].calc_ks_test(param.true_distr) 
-# 		if two_side_p_val >=0:
-# 			p_values.append(two_side_p_val)
-# 		else: 
-# 			continue
-
-# 		if bp% 1000==0:
-# 			print bp, two_side_p_val
-# 		# obs_mean = container[bp].calc_observed_insert()
-# 		# nr_reads_over_bp = len(container[bp].reads)
-# 		# if  nr_reads_over_bp > 10:
-# 		# 	nr_obs += 1
-# 		# 	tot_mean += obs_mean
-
-
-# 		if two_side_p_val < param.pval:
-# 			if avg_isize > param.adjusted_mean:
-# 				sv_container.add_bp_to_cluster(bp,  two_side_p_val, len(container[bp].isize_list), container[bp].mean_isize, 'expansion', param.d)
-# 			else:
-# 				sv_container.add_bp_to_cluster(bp,  two_side_p_val, len(container[bp].isize_list), container[bp].mean_isize, 'contraction', param.d)
-
-# 	#print p_values
-# 	plt.hist(p_values,bins=50)
-# 	plt.show()
+	def update(self, pval,mean_isize):
+		# if 0 <self.nr_significant < 100:
+		# 	print self.nr_significant 
+		# check = 0
+		# if pval < 1.73242548129e-29:
+		# 	check = 1
+		# 	print 'HERE',self.avg_mean,self.nr_significant,self.nr_in_window,self.pval_thresh, self.avg_pval,self.max_window_size
 		
-# 	return sv_container
+		# initialize window
+
+		if self.avg_mean == None and mean_isize > 0:
+			# if check:
+			# 	print 'here?', self.avg_mean,self.nr_significant,self.nr_in_window,self.pval_thresh, self.avg_pval,self.max_window_size
+			self.avg_mean = mean_isize
+			self.avg_pval = pval
+			self.nr_in_window = 1
+			if 0 <= pval < self.pval_thresh: 
+				self.nr_significant = 1 
+			else:
+				self.nr_significant = 0
+			self.queue.append((pval,mean_isize))
+			#print 'looo'
+
+		# update with new value
+
+		if 0 <= pval < self.pval_thresh: 
+			self.nr_significant += 1 
+		self.avg_mean = (self.nr_in_window * self.avg_mean + mean_isize)/ float(self.nr_in_window+1)
+		self.avg_pval = (self.nr_in_window * self.avg_pval + pval)/ float(self.nr_in_window+1)
+		self.queue.append((pval,mean_isize))
+		self.nr_in_window += 1
+
+		# window is full
+
+		if self.nr_in_window >= self.avg_mean or  self.nr_in_window >= self.max_window_size:
+			# if check:
+			# 	print 'be here!', self.avg_mean,self.nr_significant,self.nr_in_window,self.pval_thresh, self.avg_pval,self.max_window_size
+
+			if self.is_significant():
+				# if check:
+				# 	print 'please here!!', self.avg_mean,self.nr_significant,self.nr_in_window,self.pval_thresh, self.avg_pval,self.max_window_size
+
+				pval_left, mean = self.queue.popleft()
+				# if check:
+				# 	print pval_left
+
+				self.avg_mean = (self.nr_in_window * self.avg_mean - mean)/ float(self.nr_in_window-1)
+				self.avg_pval = (self.nr_in_window * self.avg_pval - pval_left)/ float(self.nr_in_window-1)
+				self.nr_in_window -= 1
+				if 0 <= pval_left < self.pval_thresh:
+					self.nr_significant -=1
+		
+				return True
+			else:
+				pval_left, mean = self.queue.popleft()
+				# if check:
+				# 	print pval_left
+
+				self.avg_mean = (self.nr_in_window * self.avg_mean - mean)/ float(self.nr_in_window-1)
+				self.avg_pval = (self.nr_in_window * self.avg_pval - pval_left)/ float(self.nr_in_window-1)
+				self.nr_in_window -= 1
+				if 0 <= pval_left < self.pval_thresh:
+					self.nr_significant -=1		
+				return False		
 
 
-def is_significant(window,pval):
-	"""
-	The window has a misassembly according to reapers thresholds, that is 
-	, at least 80% of the bases in the window has a p-value under pval.
-	"""
-	significant = []
-	for pos, pos_p_val, n_obs, mean, stddev in window:
-		if 0 < pos_p_val < pval:
-			significant.append(pos_p_val)
 
-	if len(significant)/float(len(window)) >= 0.8:
-		return True
-	else:
-		return False
+	def is_significant(self):
+		"""
+		The window has a misassembly according to reapers thresholds, that is 
+		, at least 80% of the bases in the window has a p-value under pval. Outfolder
+		window size is defined as min(reaprs' window size, avg fragment length in window)
+		This is because a contraction could not be found otherwise since it will reduce 
+		the all insert sizes spanning over.
+		"""
+		# window is large, need to drop leftmost position and 
+		# check if window is significant
+	
+		if self.nr_significant /float(self.nr_in_window) >= 0.8:
+			return True
+		else:
+			return False
 
-def get_misassemly_regions(pval_file,param, info_file):
-	window = []
+
+
+		
+def get_misassemly_regions(pval_file, param, info_file):
+	#information = [ map(lambda x: float(x), line.strip().split()[1:] ) for line in pval_file.readlines()[:10]]
+	current_seq = -1
 	sv_container = BreakPointContainer(param)
+	for line in pval_file.readlines():
+		scf, pos, pos_p_val, n_obs, mean, stddev = line.strip().split()
+		if float(pos_p_val) == -1 or float(mean) < 0:
+			current_seq = -1
+			continue
 
-	for line in pval_file:
-		[scf, pos, pos_p_val, n_obs, mean, stddev] = line.strip().split()
-		[pos, pos_p_val, n_obs, mean, stddev] = map(lambda x: float(x), [pos, pos_p_val, n_obs, mean, stddev] )
-		window.append( (pos, pos_p_val, n_obs, mean, stddev) )
-		if pos >= param.window_size:
-			w = window[-param.window_size:]
-			if is_significant(w, param.pval):
-				avg_pval = sum(map(lambda x: x[1],w))/param.window_size
-				avg_obs = sum(map(lambda x: x[2],w))/param.window_size
-				avg_mean = sum(map(lambda x: x[3],w))/param.window_size
-
-				if avg_mean > param.adjusted_mean:
-					sv_container.add_bp_to_cluster(scf, pos, avg_pval, n_obs, mean, 'expansion', param.window_size)
+		if (scf != current_seq and pos >= param.max_window_size):
+			current_seq = scf
+			window = Window(param.pval, param.max_window_size)
+			window.update(float(pos_p_val), float(mean))
+		
+		else:
+			became_significant = window.update(float(pos_p_val), float(mean))
+			if became_significant:
+				#print 'Sign'
+				if window.avg_mean > param.adjusted_mean:
+					sv_container.add_bp_to_cluster(current_seq, int(pos), window.avg_pval, int(n_obs), window.avg_mean, 'expansion', min(window.nr_in_window, window.max_window_size))
 				else:
-					sv_container.add_bp_to_cluster(scf, pos, avg_pval, n_obs, mean, 'contraction', param.window_size)
-				#print 'start', len(window) - window_size, 
-				#print 'end', scf, pos, pos_p_val, n_obs ,mean, stddev
+					sv_container.add_bp_to_cluster(current_seq, int(pos), window.avg_pval, int(n_obs), window.avg_mean, 'contraction', min(window.nr_in_window, window.max_window_size))
 
-		if pos % 10000 == 0:
-			#print 'Evaluating pos {0}'.format(pos)
-			print >> info_file, 'Evaluating pos {0}'.format(pos)
+	print 'read pval file'
 
 	return sv_container
 
-
-def main(args):
+def scan_bam(bam_file, assembly_file, outfolder):
 	param = Parameters()
 	if not os.path.exists(args.outfolder):
 		os.makedirs(args.outfolder)
-	gff_file = open(os.path.join(args.outfolder,'estimated_misassm.gff'),'w')
 	info_file = open(os.path.join(args.outfolder,'info.txt'),'w')
-	#pval_file_out = open(os.path.join(args.outfolder,'p_values.txt'),'w')
+	pval_file_out = open(os.path.join(args.outfolder,'p_values.txt'),'w')
+	assembly_dict = ReadInContigseqs(open(assembly_file,'r'),param.window_size)
 
-	if args.window_size >= 1000:
-		param.window_size = args.window_size/2 
-	else:
-		param.window_size = args.window_size
+	calc_p_values(bam_file, pval_file_out, param, info_file,assembly_dict)
+	pval_file_out.close()
 
-	param.pval = args.pval
 
-	#assembly_dict = ReadInContigseqs(open(args.assembly_file,'r'),param.window_size)
-	#calc_p_values(args.bampath, pval_file_out, param, info_file,assembly_dict)
-	#pval_file_out.close()
-	param.adjusted_mean = 3278.6
-	pval_file_in = open(os.path.join(args.outfolder,'p_values.txt'),'r')
+def cluster_pvals(pval_file_in, outfile, info_file ,assembly_file,p_val_threshold, window_size):
+	param = Parameters()
+	vals = filter( lambda line: line[0] != '#', open(info_file,'r').readlines())[0:2]
+	print vals
+	[mean,stddev] =  vals[0].strip().split()
+	[adjusted_mean, adjusted_stddev] = vals[1].strip().split()
+	param.mean, param.stddev, param.adjusted_mean,param.adjusted_stddev = float(mean), float(stddev), float(adjusted_mean), float(adjusted_stddev)
+	param.pval = p_val_threshold
+	print param.mean, param.stddev, param.adjusted_mean,param.adjusted_stddev
+	# if window_size >= 1000:
+	# 	param.max_window_size = window_size/2 
+	# else:
+	# 	param.max_window_size = window_size
+	param.max_window_size = window_size
+	gff_file = open(outfile,'w')
+	pval_file_in = open(pval_file_in,'r')
+	assembly_dict = ReadInContigseqs(open(assembly_file,'r'), param.max_window_size)
+
+	param.scaf_lengths = dict(map( lambda (key,val): (key,len(val)),assembly_dict.iteritems()))
+	print param.scaf_lengths
 	sv_container =  get_misassemly_regions(pval_file_in,param, info_file) #open(args.pval_file,'r')
-
-	#print >> info_file, '#Estimated library params: mean:{0} sigma:{1}'.format(param.mean,param.stddev)
-	#print >> info_file,'#Genome length:{0}'.format(param.scaf_lengths)
-
-	sv_container.get_final_bp_info(param.window_size)
+	sv_container.get_final_bp_info()
 	print >> gff_file, str(sv_container)
+
+
+def main_pipline(args):
+		scan_bam(args.bampath, args.assembly_file, args.outfolder)
+		cluster(args.pval_file, args.outfile, args.info_file ,args.pval, args.window_size)
+
+
+
+
+
+	# param.pval = args.pval
+
+
+	
+	# param.mean = 2570.0
+	# param.adjusted_mean = 3278.6
+
 
 
 
 if __name__ == '__main__':
-    ##
-    # Take care of input
-	parser = argparse.ArgumentParser(description="Infer variants with simple p-value test using theory of GetDistr - proof of concept.")
-	parser.add_argument('bampath', type=str, help='bam file with mapped reads. ')
-	parser.add_argument('assembly_file', type=str, help='Fasta file with assembly/genome. ')
 
-	parser.add_argument('pval', type=float, help='p-value threshold for calling a variant. ')
-	parser.add_argument('window_size', type=int, help='Window size ')
-	parser.add_argument('outfolder', type=str, help='Outfolder. ')
+	# create the top-level parser
+	parser = argparse.ArgumentParser()#prog="Infer variants with simple p-value test using theory of GetDistr - proof of concept.")
+	#parser.add_argument('--foo', action='store_true', help='help for foo arg.')
+	subparsers = parser.add_subparsers(help='help for subcommand')
 
+	# create the parser for the "pipeline" command
+	pipeline = subparsers.add_parser('pipeline', help='Run the entire pipeline')
+	pipeline.add_argument('a', type=str, help='help for bar, pipeline')
+
+	pipeline.add_argument('bampath', type=str, help='bam file with mapped reads. ')
+	pipeline.add_argument('assembly_file', type=str, help='Fasta file with assembly/genome. ')
+	pipeline.add_argument('outfolder', type=str, help='Outfolder. ')
+	pipeline.add_argument('window_size', type=int, help='Window size ')
+	pipeline.add_argument('outfolder', type=str, help='Outfolder. ')
+	pipeline.add_argument('pval', type=float, help='p-value threshold for calling a variant. ')
+	pipeline.set_defaults(which='pipeline')
+	
+	# create the parser for the "scan bam" command
+	scan_bam = subparsers.add_parser('scan_bam', help='Scan bam file and calculate pvalues for each base pair')
+	scan_bam.add_argument('bampath', type=str, help='bam file with mapped reads. ')
+	scan_bam.add_argument('assembly_file', type=str, help='Fasta file with assembly/genome. ')
+	scan_bam.add_argument('outfolder', type=str, help='Outfolder. ')
+	scan_bam.set_defaults(which='scan_bam')
+
+
+	# create the parser for the "cluster" command
+	cluster = subparsers.add_parser('cluster_pvals', help='Takes a pvalue file and clusters them into significan regions')
+	cluster.add_argument('pval_file', type=str, help='p-val file from "scan_bam" output. ')
+	cluster.add_argument('info_file', type=str, help='info file from "scan_bam" output. ')
+	cluster.add_argument('assembly_file', type=str, help='Fasta file with assembly/genome. ')
+	cluster.add_argument('pval', type=float, help='p-value threshold for calling a variant. ')
+	cluster.add_argument('window_size', type=int, help='Window size ')
+	cluster.add_argument('outfile', type=str, help='Outfile. ')
+	cluster.set_defaults(which='cluster')
 
 	# parser.add_argument('mean', type=int, help='mean insert size. ')
 	# parser.add_argument('stddev', type=int, help='Standard deviation of insert size ')
 
-
+	
 	args = parser.parse_args()
-	main(args)
+	#print args
+
+	if args.which == 'pipeline':
+		main_pipline(args)
+	elif args.which == 'scan_bam':
+		scan_bam(scan_bam.bampath, scan_bam.assembly_file, scan_bam.outfolder)
+	elif args.which == 'cluster':
+		cluster_pvals(args.pval_file, args.outfile, args.info_file, args.assembly_file ,args.pval, args.window_size)
+
+
+	#main(args)
 
 
 
