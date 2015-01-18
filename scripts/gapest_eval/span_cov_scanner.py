@@ -660,7 +660,7 @@ def scan_bam(bam_file, assembly_file, outfolder):
 def cluster_pvals(outfolder ,assembly_file, p_val_threshold, window_size):
 	info_file = open(os.path.join(args.outfolder,'info.txt'),'r')
 	param = Parameters()
-	vals = filter( lambda line: line[0] != '#', open(info_file,'r').readlines())[0:3]
+	vals = filter( lambda line: line[0] != '#', info_file.readlines())[0:3]
 	print vals
 	[mean,stddev] =  vals[0].strip().split()
 	[min_lib_isize,max_lib_isize] = vals[1].strip().split()
