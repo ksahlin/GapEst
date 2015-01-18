@@ -657,7 +657,8 @@ def scan_bam(bam_file, assembly_file, outfolder):
 	info_file.close()
 
 
-def cluster_pvals(pval_file_in, outfile, info_file ,assembly_file,p_val_threshold, window_size):
+def cluster_pvals(outfolder ,assembly_file, p_val_threshold, window_size):
+	info_file = open(os.path.join(args.outfolder,'info.txt'),'r')
 	param = Parameters()
 	vals = filter( lambda line: line[0] != '#', open(info_file,'r').readlines())[0:3]
 	print vals
@@ -673,32 +674,20 @@ def cluster_pvals(pval_file_in, outfile, info_file ,assembly_file,p_val_threshol
 	# else:
 	# 	param.max_window_size = window_size
 	param.max_window_size = window_size
-	gff_file = open(outfile,'w')
-	pval_file_in = open(pval_file_in,'r')
+	gff_file =  open(os.path.join(args.outfolder,'estimated_misassm.gff'),'w')
+	pval_file_in = open(os.path.join(args.outfolder,'p_values.txt'),'r')
 	assembly_dict = ReadInContigseqs(open(assembly_file,'r'), param.max_window_size)
 
 	param.scaf_lengths = dict(map( lambda (key,val): (key,len(val)),assembly_dict.iteritems()))
 	print param.scaf_lengths
-	sv_container =  get_misassemly_regions(pval_file_in,param, info_file) #open(args.pval_file,'r')
+	sv_container =  get_misassemly_regions(pval_file_in, param, info_file) #open(args.pval_file,'r')
 	sv_container.get_final_bp_info()
 	print >> gff_file, str(sv_container)
 
 
 def main_pipline(args):
-		scan_bam(args.bampath, args.assembly_file, args.outfolder)
-		cluster(args.pval_file, args.outfile, args.info_file ,args.pval, args.window_size)
-
-
-
-
-
-	# param.pval = args.pval
-
-
-	
-	# param.mean = 2570.0
-	# param.adjusted_mean = 3278.6
-
+	scan_bam(args.bampath, args.assembly_file, args.outfolder)
+	cluster(args.outfolder, args.assembly_file, args.pval, args.window_size)
 
 
 
@@ -728,12 +717,10 @@ if __name__ == '__main__':
 
 	# create the parser for the "cluster" command
 	cluster = subparsers.add_parser('cluster_pvals', help='Takes a pvalue file and clusters them into significan regions')
-	cluster.add_argument('pval_file', type=str, help='p-val file from "scan_bam" output. ')
-	cluster.add_argument('info_file', type=str, help='info file from "scan_bam" output. ')
 	cluster.add_argument('assembly_file', type=str, help='Fasta file with assembly/genome. ')
-	cluster.add_argument('pval', type=float, help='p-value threshold for calling a variant. ')
+	cluster.add_argument('outfolder', type=str, help='Folder with p-value fila and "info.txt" file contianing parameters "scan_bam" output. ')
 	cluster.add_argument('window_size', type=int, help='Window size ')
-	cluster.add_argument('outfile', type=str, help='Outfile. ')
+	cluster.add_argument('pval', type=float, help='p-value threshold for calling a variant. ')
 	cluster.set_defaults(which='cluster')
 
 	# parser.add_argument('mean', type=int, help='mean insert size. ')
@@ -748,7 +735,7 @@ if __name__ == '__main__':
 	elif args.which == 'scan_bam':
 		scan_bam(args.bampath, args.assembly_file, args.outfolder)
 	elif args.which == 'cluster':
-		cluster_pvals(args.pval_file, args.outfile, args.info_file, args.assembly_file ,args.pval, args.window_size)
+		cluster_pvals(args.outfolder, args.assembly_file ,args.pval, args.window_size)
 
 
 	#main(args)
