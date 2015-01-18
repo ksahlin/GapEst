@@ -111,9 +111,12 @@ class Parameters(object):
 			std_dev_isize = (sum(list(map((lambda x: x ** 2 - 2 * x * mean_isize + mean_isize ** 2), filtered_list))) / (n_isize - 1)) ** 0.5
 			isize_list = filtered_list
 
+		self.min_isize, self.max_isize = min(isize_list), max(isize_list) 
 		print >> outfile,'#Mean converged:', mean_isize
 		print >> outfile,'#Std_est converged: ', std_dev_isize
 		print >> outfile,'{0}\t{1}'.format( mean_isize, std_dev_isize)
+		print >> outfile,'{0}\t{1}'.format(self.min_isize, self.max_isize )
+
 		self.nobs = n_isize
 		self.mean = mean_isize
 		self.stddev = std_dev_isize 
@@ -381,128 +384,125 @@ def AdjustInsertsizeDist(mean_insert, std_dev_insert, insert_list):
         return(False, filtered_list)
 
 
-def calc_p_values(bamfile,outfile,param, info_file,assembly_dict):
+def calc_p_values(bam,outfile,param, info_file,assembly_dict):
 
 	p_values = []
-	with pysam.Samfile(bamfile, 'rb') as bam:
 
-		#sample true distribution
-		param.sample_distribution(bam, info_file)
 
-		# start scoring
-		#reference_tids = map(lambda x: bam.gettid(x),bam.references )
-		reference_lengths = map(lambda x: int(x), bam.lengths)
-		scaf_dict = dict(zip(bam.references, reference_lengths))
-		bam_filtered = ifilter(lambda r: r.flag <= 200, bam)
-		current_scaf = -1
-		print >> info_file, scaf_dict
-		param.scaf_lengths = scaf_dict
-		prev_coord = (0,0)
-		duplicate_count = 0
-		for i,read in enumerate(bam_filtered):
-			if read.is_unmapped:
+	# start scoring
+	#reference_tids = map(lambda x: bam.gettid(x),bam.references )
+	reference_lengths = map(lambda x: int(x), bam.lengths)
+	scaf_dict = dict(zip(bam.references, reference_lengths))
+	bam_filtered = ifilter(lambda r: r.flag <= 200, bam)
+	current_scaf = -1
+	print >> info_file, scaf_dict
+	param.scaf_lengths = scaf_dict
+	prev_coord = (0,0)
+	duplicate_count = 0
+	for i,read in enumerate(bam_filtered):
+		if read.is_unmapped:
+			continue
+		else:
+			current_coord = read.pos
+			current_ref = bam.getrname(read.tid)
+
+		coord1 = read.pos
+		coord2 = read.mpos
+		if (coord1, coord2) == prev_coord:
+			continue
+		else:
+			prev_coord = (coord1, coord2)
+
+
+		if (i + 1) %100000 == 0:
+			# print i
+			print >> info_file, '#Processing read:{0}'.format(current_coord)
+			
+		if (i+1) % 100000 == 0:
+			print >> info_file, '#removed {0} duplicates, processed {1} reads.'.format(duplicate_count,i)
+		# # # 	print 'extra!'
+		# 	break
+
+		# initialize read container for new scaffold
+		if current_ref != current_scaf:
+			print >> info_file, current_ref
+			container = []
+			scaf_length = scaf_dict[current_ref]
+
+			# store positions in reverse to reduce complexity when removing items from lits in
+			# python. We remove the last item and so on
+			for i in range(scaf_length,0,-1):
+				container.append(ReadContainer(i))
+			current_scaf = current_ref 
+		# the read pairs we want to use for calculating FCD
+		# also, we follow reaprs suggestion and remove read pairs that are further away than
+		# 1.5*param.mean from the position of interest. First we can safely remove anything
+		# bigger than 3*param.mean (because at least one read of this read pair
+		# is going to be further away than 1.5*mean from the position of interest in this read pair )
+		if is_proper_aligned_unique_innie(read): # and abs(read.tlen) <= 3*param.mean:
+			if read.aend >= scaf_length or read.aend < 0 or read.mpos +read.rlen > scaf_length or read.pos < 0:
+				print 'Read coordinates outside scaffold length for {0}:'.format(current_scaf), read.aend, read.aend, read.mpos +read.rlen, read.pos 
 				continue
+
+			# Here we only add the observations that are not
+			# further away than the pairs 1.5*param.mean < obs < 3*param.mean 
+
+			# if abs(read.tlen) > 1.5*param.mean:
+			# 	excluded_region_size = int(abs(read.tlen) - 1.5*param.mean)
+			# 	#print 'LOOOOOOL'
+			# else:
+			# 	excluded_region_size = 0
+
+			excluded_region_size = 0
+
+			if read.tlen > 0:
+				inner_start_pos = read.aend
+				inner_end_pos = read.mpos
+				for pos in range(inner_start_pos + excluded_region_size, inner_end_pos - excluded_region_size):
+					try:
+						container[scaf_length - pos].add_read(read)
+					#container[pos].add_read(read2)
+					except IndexError:
+						pass
+						#print 'Tried adding read pair to position {0}. On scaffold {1} with length {2}, with container of size {3}'.format(pos, current_scaf, scaf_length, len(container)) 
 			else:
-				current_coord = read.pos
-				current_ref = bam.getrname(read.tid)
 
-			coord1 = read.pos
-			coord2 = read.mpos
-			if (coord1, coord2) == prev_coord:
-				continue
-			else:
-				prev_coord = (coord1, coord2)
+				inner_start_pos = read.mpos +read.rlen
+				inner_end_pos = read.pos
+				for pos in range(inner_start_pos + excluded_region_size, inner_end_pos - excluded_region_size):
+					try:
+						container[scaf_length - pos].add_read(read)
+					except IndexError:
+						pass
+						#print 'Tried adding read pair to position {0}. On scaffold {1} with length {2}, with container of size {3}'.format(pos, current_scaf, scaf_length, len(container)) 
 
+					#container[pos].add_read(read2)
 
-			if (i + 1) %100000 == 0:
-				# print i
-				print >> info_file, '#Processing read:{0}'.format(current_coord)
-				
-			if (i+1) % 100000 == 0:
-				print >> info_file, '#removed {0} duplicates, processed {1} reads.'.format(duplicate_count,i)
-			# # # 	print 'extra!'
-			# 	break
+		# write positions out to file
+		if  current_coord > scaf_length - len(container):
 
-			# initialize read container for new scaffold
-			if current_ref != current_scaf:
-				print >> info_file, current_ref
-				container = []
-				scaf_length = scaf_dict[current_ref]
+			while scaf_length - len(container) < current_coord:
 
-				# store positions in reverse to reduce complexity when removing items from lits in
-				# python. We remove the last item and so on
-				for i in range(scaf_length,0,-1):
-					container.append(ReadContainer(i))
-				current_scaf = current_ref 
-			# the read pairs we want to use for calculating FCD
-			# also, we follow reaprs suggestion and remove read pairs that are further away than
-			# 1.5*param.mean from the position of interest. First we can safely remove anything
-			# bigger than 3*param.mean (because at least one read of this read pair
-			# is going to be further away than 1.5*mean from the position of interest in this read pair )
-			if is_proper_aligned_unique_innie(read): # and abs(read.tlen) <= 3*param.mean:
-				if read.aend >= scaf_length or read.aend < 0 or read.mpos +read.rlen > scaf_length or read.pos < 0:
-					print 'Read coordinates outside scaffold length for {0}:'.format(current_scaf), read.aend, read.aend, read.mpos +read.rlen, read.pos 
-					continue
-	
-				# Here we only add the observations that are not
-				# further away than the pairs 1.5*param.mean < obs < 3*param.mean 
+				# get true distribution
+				if container[-1].position % 1000 == 0:
+					print 'position', container[-1].position
+				sequence_in_window = assembly_dict[ current_ref ][container[-1].position - int(1.5*param.mean) : container[-1].position + int(1.5*param.mean) ]
+				#p = re.compile("[Nn]+")
+				gap_coordinates = []
+				#for m in p.finditer(sequence_in_window):
+				#	gap_coordinates.append((m.start() - int(1.5*param.mean) ,m.end() - int(1.5*param.mean) ))
 
-				# if abs(read.tlen) > 1.5*param.mean:
-				# 	excluded_region_size = int(abs(read.tlen) - 1.5*param.mean)
-				# 	#print 'LOOOOOOL'
-				# else:
-				# 	excluded_region_size = 0
-
-				excluded_region_size = 0
-
-				if read.tlen > 0:
-					inner_start_pos = read.aend
-					inner_end_pos = read.mpos
-					for pos in range(inner_start_pos + excluded_region_size, inner_end_pos - excluded_region_size):
-						try:
-							container[scaf_length - pos].add_read(read)
-						#container[pos].add_read(read2)
-						except IndexError:
-							pass
-							#print 'Tried adding read pair to position {0}. On scaffold {1} with length {2}, with container of size {3}'.format(pos, current_scaf, scaf_length, len(container)) 
-				else:
-
-					inner_start_pos = read.mpos +read.rlen
-					inner_end_pos = read.pos
-					for pos in range(inner_start_pos + excluded_region_size, inner_end_pos - excluded_region_size):
-						try:
-							container[scaf_length - pos].add_read(read)
-						except IndexError:
-							pass
-							#print 'Tried adding read pair to position {0}. On scaffold {1} with length {2}, with container of size {3}'.format(pos, current_scaf, scaf_length, len(container)) 
-
-						#container[pos].add_read(read2)
-
-			# write positions out to file
-			if  current_coord > scaf_length - len(container):
-
-				while scaf_length - len(container) < current_coord:
-
-					# get true distribution
-					if container[-1].position % 1000 == 0:
-						print 'position', container[-1].position
-					sequence_in_window = assembly_dict[ current_ref ][container[-1].position - int(1.5*param.mean) : container[-1].position + int(1.5*param.mean) ]
-					#p = re.compile("[Nn]+")
-					gap_coordinates = []
-					#for m in p.finditer(sequence_in_window):
-					#	gap_coordinates.append((m.start() - int(1.5*param.mean) ,m.end() - int(1.5*param.mean) ))
-
-					true_distribution = param.get_correct_ECDF(outfile, gap_coordinates)
-					container[-1].calc_observed_insert()
-					KS_statistic, two_side_p_val = container[-1].calc_ks_test(true_distribution) 
+				true_distribution = param.get_correct_ECDF(outfile, gap_coordinates)
+				container[-1].calc_observed_insert()
+				KS_statistic, two_side_p_val = container[-1].calc_ks_test(true_distribution) 
 
 
-					# do ks_2_sample
-					if two_side_p_val > 0:
-						p_values.append(two_side_p_val)
-					# write chromosome, coord, p_val to file
-					container[-1].write_pval_to_file(outfile,current_ref)
-					del container[-1]
+				# do ks_2_sample
+				if two_side_p_val > 0:
+					p_values.append(two_side_p_val)
+				# write chromosome, coord, p_val to file
+				container[-1].write_pval_to_file(outfile,current_ref)
+				del container[-1]
 
 
 
@@ -641,21 +641,29 @@ def scan_bam(bam_file, assembly_file, outfolder):
 		os.makedirs(args.outfolder)
 	info_file = open(os.path.join(args.outfolder,'info.txt'),'w')
 	pval_file_out = open(os.path.join(args.outfolder,'p_values.txt'),'w')
-	assembly_dict = ReadInContigseqs(open(assembly_file,'r'),param.window_size)
 
-	calc_p_values(bam_file, pval_file_out, param, info_file,assembly_dict)
+	with pysam.Samfile(bam_file, 'rb') as bam:
+		#sample true distribution
+		param.sample_distribution(bam, info_file)
+		# read in contig sequences
+		assembly_dict = ReadInContigseqs(open(assembly_file,'r'),param.max_isize)
+		# calculate palues over each base pair
+		calc_p_values(bam, pval_file_out, param, info_file,assembly_dict)
 	pval_file_out.close()
+	info_file.close()
 
 
 def cluster_pvals(pval_file_in, outfile, info_file ,assembly_file,p_val_threshold, window_size):
 	param = Parameters()
-	vals = filter( lambda line: line[0] != '#', open(info_file,'r').readlines())[0:2]
+	vals = filter( lambda line: line[0] != '#', open(info_file,'r').readlines())[0:3]
 	print vals
 	[mean,stddev] =  vals[0].strip().split()
-	[adjusted_mean, adjusted_stddev] = vals[1].strip().split()
+	[min_lib_isize,max_lib_isize] = vals[1].strip().split()
+	[adjusted_mean, adjusted_stddev] = vals[2].strip().split()
 	param.mean, param.stddev, param.adjusted_mean,param.adjusted_stddev = float(mean), float(stddev), float(adjusted_mean), float(adjusted_stddev)
+	param.min_isize, param.max_isize = int(min_lib_isize), int(max_lib_isize)
 	param.pval = p_val_threshold
-	print param.mean, param.stddev, param.adjusted_mean,param.adjusted_stddev
+	print param.mean, param.stddev, param.adjusted_mean,param.adjusted_stddev, param.min_isize, param.max_isize
 	# if window_size >= 1000:
 	# 	param.max_window_size = window_size/2 
 	# else:
@@ -699,22 +707,19 @@ if __name__ == '__main__':
 
 	# create the parser for the "pipeline" command
 	pipeline = subparsers.add_parser('pipeline', help='Run the entire pipeline')
-	pipeline.add_argument('a', type=str, help='help for bar, pipeline')
-
 	pipeline.add_argument('bampath', type=str, help='bam file with mapped reads. ')
 	pipeline.add_argument('assembly_file', type=str, help='Fasta file with assembly/genome. ')
 	pipeline.add_argument('outfolder', type=str, help='Outfolder. ')
 	pipeline.add_argument('window_size', type=int, help='Window size ')
-	pipeline.add_argument('outfolder', type=str, help='Outfolder. ')
 	pipeline.add_argument('pval', type=float, help='p-value threshold for calling a variant. ')
 	pipeline.set_defaults(which='pipeline')
 	
 	# create the parser for the "scan bam" command
-	scan_bam = subparsers.add_parser('scan_bam', help='Scan bam file and calculate pvalues for each base pair')
-	scan_bam.add_argument('bampath', type=str, help='bam file with mapped reads. ')
-	scan_bam.add_argument('assembly_file', type=str, help='Fasta file with assembly/genome. ')
-	scan_bam.add_argument('outfolder', type=str, help='Outfolder. ')
-	scan_bam.set_defaults(which='scan_bam')
+	scan_bam_parser = subparsers.add_parser('scan_bam', help='Scan bam file and calculate pvalues for each base pair')
+	scan_bam_parser.add_argument('bampath', type=str, help='bam file with mapped reads. ')
+	scan_bam_parser.add_argument('assembly_file', type=str, help='Fasta file with assembly/genome. ')
+	scan_bam_parser.add_argument('outfolder', type=str, help='Outfolder. ')
+	scan_bam_parser.set_defaults(which='scan_bam')
 
 
 	# create the parser for the "cluster" command
@@ -737,7 +742,7 @@ if __name__ == '__main__':
 	if args.which == 'pipeline':
 		main_pipline(args)
 	elif args.which == 'scan_bam':
-		scan_bam(scan_bam.bampath, scan_bam.assembly_file, scan_bam.outfolder)
+		scan_bam(args.bampath, args.assembly_file, args.outfolder)
 	elif args.which == 'cluster':
 		cluster_pvals(args.pval_file, args.outfile, args.info_file, args.assembly_file ,args.pval, args.window_size)
 
