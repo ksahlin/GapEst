@@ -9,7 +9,7 @@ import os
 from mathstats.normaldist.normal import MaxObsDistr
 from scipy.stats import ks_2samp,norm
 import random
-#import re
+import re
 import math
 
 import pysam
@@ -164,7 +164,9 @@ class Parameters(object):
 		total_restriction_positions_right = 0
 
 		for start,stop in gap_coordinates:
-			if  x < start:
+			if (stop - start)  < s:
+				continue
+			elif  x < start:
 				continue #total_restriction_positions_right += 0
 
 			elif  (r-s)-1 <= start  <= x:
@@ -213,7 +215,7 @@ class Parameters(object):
 
 
 		read_len = 100
-		softclipps = 80
+		softclipps = 60
 
 
 		x_min = max(2*(read_len-softclipps) , int(self.mean - 5*self.stddev) )
@@ -488,9 +490,11 @@ def calc_p_values(bam,outfile,param, info_file,assembly_dict):
 					print 'position', container[-1].position
 				sequence_in_window = assembly_dict[ current_ref ][container[-1].position - int(1.5*param.mean) : container[-1].position + int(1.5*param.mean) ]
 				#p = re.compile("[Nn]+")
+				# at least 20 N's to consider to be a gap
+				p = re.compile("[Nn]{20,}")
 				gap_coordinates = []
-				#for m in p.finditer(sequence_in_window):
-				#	gap_coordinates.append((m.start() - int(1.5*param.mean) ,m.end() - int(1.5*param.mean) ))
+				for m in p.finditer(sequence_in_window):
+					gap_coordinates.append((m.start() - int(1.5*param.mean) ,m.end() - int(1.5*param.mean) ))
 
 				true_distribution = param.get_correct_ECDF(outfile, gap_coordinates)
 				container[-1].calc_observed_insert()
