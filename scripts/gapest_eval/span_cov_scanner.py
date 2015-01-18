@@ -87,16 +87,20 @@ class Parameters(object):
 		isize_list = []
 		#i = 0
 		bam_filtered = ifilter(lambda r: is_proper_aligned_unique_innie(r), bamfile)
+		read_lengths = []
 		#while i <= sample_size:
 		for sample_nr,read in enumerate(bam_filtered):
 	   		## add do insert size distribution calculation if proper pair
 			if is_proper_aligned_unique_innie(read):
 				isize_list.append(abs(read.tlen))
+				read_lengths.append(read.rlen)
 				#sample_nr+=1
 			if sample_nr > SAMPLE_SIZE:
 				break
 		print >> outfile, '#Insert size sample size:', sample_nr
 		bamfile.reset()
+
+		self.read_length = sum(read_lengths)/float(len(read_lengths))
 
 		n_isize = float(len(isize_list))
 		mean_isize = sum(isize_list)/n_isize
@@ -116,6 +120,7 @@ class Parameters(object):
 		print >> outfile,'#Std_est converged: ', std_dev_isize
 		print >> outfile,'{0}\t{1}'.format( mean_isize, std_dev_isize)
 		print >> outfile,'{0}\t{1}'.format(self.min_isize, self.max_isize )
+		print >> outfile,'{0}'.format(self.read_length)
 
 		self.nobs = n_isize
 		self.mean = mean_isize
@@ -512,10 +517,11 @@ def calc_p_values(bam,outfile,param, info_file,assembly_dict):
 
 class Window(object):
 	"""docstring for Window"""
-	def __init__(self,pval_thresh, max_size):
+	def __init__(self,pval_thresh, max_size, read_length):
 		super(Window, self).__init__()
 		self.queue = deque() 
-		self.avg_mean = None
+		self.avg_inner_mean = None
+		self.read_length = read_length
 		self.nr_significant = 0
 		self.nr_in_window = 0
 		self.pval_thresh = pval_thresh
@@ -523,55 +529,40 @@ class Window(object):
 		self.max_window_size = max_size
 
 	def update(self, pos, pval,mean_isize):
-		# if 0 <self.nr_significant < 100:
-		# 	print self.nr_significant 
-		# check = 0
-		# if pval < 1.73242548129e-29:
-		# 	check = 1
-		# 	print 'HERE',self.avg_mean,self.nr_significant,self.nr_in_window,self.pval_thresh, self.avg_pval,self.max_window_size
-		
+		mean_inner_isize = mean_isize - 2*self.read_length
 		# initialize window
 
-		if self.avg_mean == None and mean_isize > 0:
-			# if check:
-			# 	print 'here?', self.avg_mean,self.nr_significant,self.nr_in_window,self.pval_thresh, self.avg_pval,self.max_window_size
-			self.avg_mean = mean_isize
+		if self.avg_inner_mean == None and mean_inner_isize > 0:
+			self.avg_inner_mean = mean_inner_isize 
 			self.avg_pval = pval
 			self.nr_in_window = 1
 			if 0 <= pval < self.pval_thresh: 
 				self.nr_significant = 1 
 			else:
 				self.nr_significant = 0
-			self.queue.append((pos,pval,mean_isize))
-			#print 'looo'
+			self.queue.append((pos,pval,mean_inner_isize))
 
 		# update with new value
 
 		if 0 <= pval < self.pval_thresh: 
 			self.nr_significant += 1 
-		self.avg_mean = (self.nr_in_window * self.avg_mean + mean_isize)/ float(self.nr_in_window+1)
+		self.avg_inner_mean = (self.nr_in_window * self.avg_inner_mean + mean_inner_isize)/ float(self.nr_in_window+1)
 		self.avg_pval = (self.nr_in_window * self.avg_pval + pval)/ float(self.nr_in_window+1)
-		self.queue.append((pos,pval,mean_isize))
+		self.queue.append((pos,pval,mean_inner_isize))
 		self.nr_in_window += 1
 
 		# window is full
 		# usually one position if any become significant, but many positions can become
 		# significant at once if the average mena ofer the positions drastically decreases.
 		# the window size natually decreases and adapts.
-		#c = 0
-		while  self.nr_in_window >= self.avg_mean or  self.nr_in_window >= self.max_window_size:
-		#if self.nr_in_window >= self.avg_mean or  self.nr_in_window >= self.max_window_size:
-			#c+=1
+		while  self.nr_in_window >= self.avg_inner_mean or  self.nr_in_window >= self.max_window_size:
 			if self.is_significant():
-				# if check:
-				# 	print 'please here!!', self.avg_mean,self.nr_significant,self.nr_in_window,self.pval_thresh, self.avg_pval,self.max_window_size
-
 				pos, pval_left, mean = self.queue.popleft()
 
-				self.avg_mean = (self.nr_in_window * self.avg_mean - mean)/ float(self.nr_in_window-1)
+				self.avg_inner_mean = (self.nr_in_window * self.avg_inner_mean - mean)/ float(self.nr_in_window-1)
 				self.avg_pval = max((self.nr_in_window * self.avg_pval - pval_left)/ float(self.nr_in_window-1),0)
 				if self.avg_pval < 0:
-					print 'Negative p-val', pos, self.nr_in_window,self.avg_mean, pval_left, self.avg_pval
+					print 'Negative p-val', pos, self.nr_in_window,self.avg_inner_mean, pval_left, self.avg_pval
 				self.nr_in_window -= 1
 				if 0 <= pval_left < self.pval_thresh:
 					self.nr_significant -=1
@@ -580,10 +571,10 @@ class Window(object):
 			else:
 				pos, pval_left, mean = self.queue.popleft()
 
-				self.avg_mean = (self.nr_in_window * self.avg_mean - mean)/ float(self.nr_in_window-1)
+				self.avg_inner_mean = (self.nr_in_window * self.avg_inner_mean - mean)/ float(self.nr_in_window-1)
 				self.avg_pval = max((self.nr_in_window * self.avg_pval - pval_left)/ float(self.nr_in_window-1),0)
 				if self.avg_pval < 0:
-					print 'Negative p-val non_sign', pos, self.nr_in_window,self.avg_mean, pval_left, self.avg_pval
+					print 'Negative p-val non_sign', pos, self.nr_in_window,self.avg_inner_mean, pval_left, self.avg_pval
 				self.nr_in_window -= 1
 				if 0 <= pval_left < self.pval_thresh:
 					self.nr_significant -=1		
@@ -614,26 +605,30 @@ def get_misassemly_regions(pval_file, param, info_file):
 	current_seq = -1
 	sv_container = BreakPointContainer(param)
 	for line in pval_file.readlines():
+		#print line
+		
 		scf, pos, pos_p_val, n_obs, mean, stddev = line.strip().split()
+
 		if float(pos_p_val) == -1 or float(mean) < 0:
 			current_seq = -1
 			continue
 
 		if (scf != current_seq and pos >= param.max_window_size):
 			current_seq = scf
-			window = Window(param.pval, param.max_window_size)
+			window = Window(param.pval, param.max_window_size, param.read_length)
 			window.update(int(pos),float(pos_p_val), float(mean))
 		
 		else:
 			#became_significant = window.update(int(pos),float(pos_p_val), float(mean))
 			for significant_position in  window.update(int(pos),float(pos_p_val), float(mean)):
 			#if became_significant:
-				if window.avg_mean > param.adjusted_mean:
-					sv_container.add_bp_to_cluster(current_seq, int(significant_position), window.avg_pval, int(n_obs), window.avg_mean, 'expansion', min(window.nr_in_window, window.max_window_size))
+				avg_window_mean = window.avg_inner_mean + 2*window.read_length
+				if avg_window_mean > param.adjusted_mean:
+					sv_container.add_bp_to_cluster(current_seq, int(significant_position), window.avg_pval, int(n_obs), avg_window_mean, 'expansion', min(window.nr_in_window, window.max_window_size))
 				else:
 					# if 424215 < significant_position  < 427701:
 					# 	print window.avg_pval
-					sv_container.add_bp_to_cluster(current_seq, int(significant_position), window.avg_pval, int(n_obs), window.avg_mean, 'contraction', min(window.nr_in_window, window.max_window_size))
+					sv_container.add_bp_to_cluster(current_seq, int(significant_position), window.avg_pval, int(n_obs), avg_window_mean, 'contraction', min(window.nr_in_window, window.max_window_size))
 
 	print 'read pval file'
 
@@ -660,15 +655,17 @@ def scan_bam(bam_file, assembly_file, outfolder):
 def cluster_pvals(outfolder ,assembly_file, p_val_threshold, window_size):
 	info_file = open(os.path.join(args.outfolder,'info.txt'),'r')
 	param = Parameters()
-	vals = filter( lambda line: line[0] != '#', info_file.readlines())[0:3]
+	vals = filter( lambda line: line[0] != '#', info_file.readlines())[0:4]
 	print vals
 	[mean,stddev] =  vals[0].strip().split()
 	[min_lib_isize,max_lib_isize] = vals[1].strip().split()
-	[adjusted_mean, adjusted_stddev] = vals[2].strip().split()
+	[read_length] = vals[2].strip().split()
+	[adjusted_mean, adjusted_stddev] = vals[3].strip().split()
 	param.mean, param.stddev, param.adjusted_mean,param.adjusted_stddev = float(mean), float(stddev), float(adjusted_mean), float(adjusted_stddev)
 	param.min_isize, param.max_isize = int(min_lib_isize), int(max_lib_isize)
 	param.pval = p_val_threshold
-	print param.mean, param.stddev, param.adjusted_mean,param.adjusted_stddev, param.min_isize, param.max_isize
+	param.read_length = float(read_length)
+	print param.mean, param.stddev, param.adjusted_mean,param.adjusted_stddev, param.min_isize, param.max_isize, param.read_length
 	# if window_size >= 1000:
 	# 	param.max_window_size = window_size/2 
 	# else:
