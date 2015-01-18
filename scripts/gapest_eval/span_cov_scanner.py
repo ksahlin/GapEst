@@ -293,6 +293,13 @@ class ReadContainer(object):
 			self.pval = -1
 			return -1, -1
 
+def median(l):
+    half = len(l) / 2
+    l.sort()
+    if len(l) % 2 == 0:
+        return (l[half-1] + l[half]) / 2.0
+    else:
+        return l[half]
 
 class BreakPointContainer(object):
 	"""docstring for BreakPointContainer"""
@@ -344,16 +351,14 @@ class BreakPointContainer(object):
 			start_pos = self.clusters[region]['min'] #- window_size
 			end_pos = self.clusters[region]['max'] + self.clusterinfo[region][-1][-1]
 
-			#n = len(self.clusters[region])
-			#median_basepair = self.clusters[region][n/2]
 			region_pvalues = map(lambda x:x[0], self.clusterinfo[region])
-			avg_region_pvalue = sum(region_pvalues)/len(region_pvalues)
+			median_region_pvalue = median(region_pvalues)  #sum(region_pvalues)/len(region_pvalues)
 			region_nr_obs = map(lambda x:x[1], self.clusterinfo[region])
 			avg_region_nr_obs = sum(region_nr_obs)/len(region_nr_obs)
 			region_mean_obs = map(lambda x:x[2], self.clusterinfo[region])
 			avg_region_mean_obs = sum(region_mean_obs)/len(region_mean_obs)
 
-			self.final_bps.append( (region[1], 'GetDistr', 'FCD', start_pos, end_pos, avg_region_pvalue,'.','.','type:{0};avg_nr_span_obs:{1};mean_obs_isize:{2};window_size:{3}'.format(region[0], avg_region_nr_obs, avg_region_mean_obs, avg_window_size) ) )
+			self.final_bps.append( (region[1], 'GetDistr', 'FCD', start_pos, end_pos, median_region_pvalue,'.','.','type:{0};avg_nr_span_obs:{1};mean_obs_isize:{2};window_size:{3}'.format(region[0], avg_region_nr_obs, avg_region_mean_obs, avg_window_size) ) )
 			
 
 	def __str__(self):
@@ -434,13 +439,9 @@ def calc_p_values(bamfile,outfile,param, info_file,assembly_dict):
 			# 1.5*param.mean from the position of interest. First we can safely remove anything
 			# bigger than 3*param.mean (because at least one read of this read pair
 			# is going to be further away than 1.5*mean from the position of interest in this read pair )
-			if is_proper_aligned_unique_innie(read) and abs(read.tlen) <= 3*param.mean:
-				#if abs(read.tlen) > 700:
-				#	print read.tlen, read.pos,current_scaf
-				#if current_scaf == 'scf_gap0_errorsize75' and (read.pos > 2352 or read.mpos > 2350):
-				#	print current_scaf, read.pos, read.mpos
+			if is_proper_aligned_unique_innie(read): # and abs(read.tlen) <= 3*param.mean:
 				if read.aend >= scaf_length or read.aend < 0 or read.mpos +read.rlen > scaf_length or read.pos < 0:
-					#print 'Read coordinates outside scaffold length for {0}:'.format(current_scaf), read.aend, read.aend, read.mpos +read.rlen, read.pos 
+					print 'Read coordinates outside scaffold length for {0}:'.format(current_scaf), read.aend, read.aend, read.mpos +read.rlen, read.pos 
 					continue
 	
 				# Here we only add the observations that are not
@@ -453,7 +454,7 @@ def calc_p_values(bamfile,outfile,param, info_file,assembly_dict):
 				# 	excluded_region_size = 0
 
 				excluded_region_size = 0
-				
+
 				if read.tlen > 0:
 					inner_start_pos = read.aend
 					inner_end_pos = read.mpos
@@ -517,7 +518,7 @@ class Window(object):
 		self.avg_pval = 0
 		self.max_window_size = max_size
 
-	def update(self, pval,mean_isize):
+	def update(self, pos, pval,mean_isize):
 		# if 0 <self.nr_significant < 100:
 		# 	print self.nr_significant 
 		# check = 0
@@ -537,7 +538,7 @@ class Window(object):
 				self.nr_significant = 1 
 			else:
 				self.nr_significant = 0
-			self.queue.append((pval,mean_isize))
+			self.queue.append((pos,pval,mean_isize))
 			#print 'looo'
 
 		# update with new value
@@ -546,41 +547,42 @@ class Window(object):
 			self.nr_significant += 1 
 		self.avg_mean = (self.nr_in_window * self.avg_mean + mean_isize)/ float(self.nr_in_window+1)
 		self.avg_pval = (self.nr_in_window * self.avg_pval + pval)/ float(self.nr_in_window+1)
-		self.queue.append((pval,mean_isize))
+		self.queue.append((pos,pval,mean_isize))
 		self.nr_in_window += 1
 
 		# window is full
-
-		if self.nr_in_window >= self.avg_mean or  self.nr_in_window >= self.max_window_size:
-			# if check:
-			# 	print 'be here!', self.avg_mean,self.nr_significant,self.nr_in_window,self.pval_thresh, self.avg_pval,self.max_window_size
-
+		# usually one position if any become significant, but many positions can become
+		# significant at once if the average mena ofer the positions drastically decreases.
+		# the window size natually decreases and adapts.
+		#c = 0
+		while  self.nr_in_window >= self.avg_mean or  self.nr_in_window >= self.max_window_size:
+		#if self.nr_in_window >= self.avg_mean or  self.nr_in_window >= self.max_window_size:
+			#c+=1
 			if self.is_significant():
 				# if check:
 				# 	print 'please here!!', self.avg_mean,self.nr_significant,self.nr_in_window,self.pval_thresh, self.avg_pval,self.max_window_size
 
-				pval_left, mean = self.queue.popleft()
-				# if check:
-				# 	print pval_left
+				pos, pval_left, mean = self.queue.popleft()
 
 				self.avg_mean = (self.nr_in_window * self.avg_mean - mean)/ float(self.nr_in_window-1)
-				self.avg_pval = (self.nr_in_window * self.avg_pval - pval_left)/ float(self.nr_in_window-1)
+				self.avg_pval = max((self.nr_in_window * self.avg_pval - pval_left)/ float(self.nr_in_window-1),0)
+				if self.avg_pval < 0:
+					print 'Negative p-val', pos, self.nr_in_window,self.avg_mean, pval_left, self.avg_pval
 				self.nr_in_window -= 1
 				if 0 <= pval_left < self.pval_thresh:
 					self.nr_significant -=1
-		
-				return True
+
+				yield pos
 			else:
-				pval_left, mean = self.queue.popleft()
-				# if check:
-				# 	print pval_left
+				pos, pval_left, mean = self.queue.popleft()
 
 				self.avg_mean = (self.nr_in_window * self.avg_mean - mean)/ float(self.nr_in_window-1)
-				self.avg_pval = (self.nr_in_window * self.avg_pval - pval_left)/ float(self.nr_in_window-1)
+				self.avg_pval = max((self.nr_in_window * self.avg_pval - pval_left)/ float(self.nr_in_window-1),0)
+				if self.avg_pval < 0:
+					print 'Negative p-val non_sign', pos, self.nr_in_window,self.avg_mean, pval_left, self.avg_pval
 				self.nr_in_window -= 1
 				if 0 <= pval_left < self.pval_thresh:
 					self.nr_significant -=1		
-				return False		
 
 
 
@@ -616,16 +618,18 @@ def get_misassemly_regions(pval_file, param, info_file):
 		if (scf != current_seq and pos >= param.max_window_size):
 			current_seq = scf
 			window = Window(param.pval, param.max_window_size)
-			window.update(float(pos_p_val), float(mean))
+			window.update(int(pos),float(pos_p_val), float(mean))
 		
 		else:
-			became_significant = window.update(float(pos_p_val), float(mean))
-			if became_significant:
-				#print 'Sign'
+			#became_significant = window.update(int(pos),float(pos_p_val), float(mean))
+			for significant_position in  window.update(int(pos),float(pos_p_val), float(mean)):
+			#if became_significant:
 				if window.avg_mean > param.adjusted_mean:
-					sv_container.add_bp_to_cluster(current_seq, int(pos), window.avg_pval, int(n_obs), window.avg_mean, 'expansion', min(window.nr_in_window, window.max_window_size))
+					sv_container.add_bp_to_cluster(current_seq, int(significant_position), window.avg_pval, int(n_obs), window.avg_mean, 'expansion', min(window.nr_in_window, window.max_window_size))
 				else:
-					sv_container.add_bp_to_cluster(current_seq, int(pos), window.avg_pval, int(n_obs), window.avg_mean, 'contraction', min(window.nr_in_window, window.max_window_size))
+					# if 424215 < significant_position  < 427701:
+					# 	print window.avg_pval
+					sv_container.add_bp_to_cluster(current_seq, int(significant_position), window.avg_pval, int(n_obs), window.avg_mean, 'contraction', min(window.nr_in_window, window.max_window_size))
 
 	print 'read pval file'
 
