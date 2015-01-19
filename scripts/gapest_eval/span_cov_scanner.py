@@ -24,7 +24,7 @@ from collections import deque
 from statsmodels.distributions.empirical_distribution import ECDF
 
 EMPIRICAL_BINS = 200
-SAMPLE_SIZE = 100000  # for estimating true full read pair distribution
+SAMPLE_SIZE = 200000  # for estimating true full read pair distribution
 
 def is_proper_aligned_unique_innie(read):
     return (read.is_reverse and not read.mate_is_reverse and read.is_read1 and read.tlen < 0 and read.rname == read.mrnm) or \
@@ -405,6 +405,7 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 	param.scaf_lengths = scaf_dict
 	prev_coord = (0,0)
 	duplicate_count = 0
+
 	for i,read in enumerate(bam_filtered):
 		if read.is_unmapped:
 			continue
@@ -414,7 +415,9 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 
 		coord1 = read.pos
 		coord2 = read.mpos
+
 		if (coord1, coord2) == prev_coord:
+			duplicate_count += 1
 			continue
 		else:
 			prev_coord = (coord1, coord2)
@@ -429,6 +432,8 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 		# # # 	print 'extra!'
 		# 	break
 
+		if param.scaf_lengths[current_ref] < param.max_isize:
+			continue
 		# initialize read container for new scaffold
 		if current_ref != current_scaf:
 			print current_ref
@@ -445,7 +450,7 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 		# 1.5*param.mean from the position of interest. First we can safely remove anything
 		# bigger than 3*param.mean (because at least one read of this read pair
 		# is going to be further away than 1.5*mean from the position of interest in this read pair )
-		if is_proper_aligned_unique_innie(read) and abs(read.tlen) <= param.max_isize:
+		if is_proper_aligned_unique_innie(read) and (param.min_isize <= abs(read.tlen) <= param.max_isize):
 			if read.aend >= scaf_length or read.aend < 0 or read.mpos +read.rlen > scaf_length or read.pos < 0:
 				print 'Read coordinates outside scaffold length for {0}:'.format(current_scaf), read.aend, read.aend, read.mpos +read.rlen, read.pos 
 				continue
