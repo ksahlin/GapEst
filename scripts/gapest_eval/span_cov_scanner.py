@@ -24,7 +24,7 @@ from collections import deque
 from statsmodels.distributions.empirical_distribution import ECDF
 
 EMPIRICAL_BINS = 200
-SAMPLE_SIZE = 50000  # for estimating true full read pair distribution
+SAMPLE_SIZE = 100000  # for estimating true full read pair distribution
 
 def is_proper_aligned_unique_innie(read):
     return (read.is_reverse and not read.mate_is_reverse and read.is_read1 and read.tlen < 0 and read.rname == read.mrnm) or \
@@ -101,7 +101,7 @@ class Parameters(object):
 		bamfile.reset()
 
 		self.read_length = sum(read_lengths)/float(len(read_lengths))
-
+		isize_list = filter(lambda x: 0 < x - 2*self.read_length,isize_list)
 		n_isize = float(len(isize_list))
 		mean_isize = sum(isize_list)/n_isize
 		std_dev_isize =  (sum(list(map((lambda x: x ** 2 - 2 * x * mean_isize + mean_isize ** 2), isize_list))) / (n_isize - 1)) ** 0.5
@@ -639,7 +639,6 @@ def scan_bam(bam_file, assembly_file, outfolder):
 		os.makedirs(args.outfolder)
 	info_file = open(os.path.join(args.outfolder,'info.txt'),'w')
 	pval_file_out = open(os.path.join(args.outfolder,'p_values.txt'),'w')
-
 	with pysam.Samfile(bam_file, 'rb') as bam:
 		#sample true distribution
 		param.sample_distribution(bam, info_file)
@@ -647,7 +646,7 @@ def scan_bam(bam_file, assembly_file, outfolder):
 		# read in contig sequences
 		assembly_dict = ReadInContigseqs(open(assembly_file,'r'),param.max_isize)
 		# calculate palues over each base pair
-		calc_p_values(bam, pval_file_out, param, info_file, assembly_dict)
+		calc_p_values(bam, pval_file_out, param, assembly_dict)
 	pval_file_out.close()
 	
 
