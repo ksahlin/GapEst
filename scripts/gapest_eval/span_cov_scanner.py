@@ -684,7 +684,7 @@ def cluster_pvals(outfolder ,assembly_file, p_val_threshold, window_size):
 
 def main_pipline(args):
 	scan_bam(args.bampath, args.assembly_file, args.outfolder)
-	cluster(args.outfolder, args.assembly_file, args.pval, args.window_size)
+	cluster_pvals(args.outfolder, args.assembly_file, args.pval, args.window_size)
 
 
 
