@@ -27,9 +27,15 @@ EMPIRICAL_BINS = 200
 SAMPLE_SIZE = 200000  # for estimating true full read pair distribution
 
 def is_proper_aligned_unique_innie(read):
-    return (read.is_reverse and not read.mate_is_reverse and read.is_read1 and read.tlen < 0 and read.rname == read.mrnm) or \
-                (not read.is_reverse and read.mate_is_reverse and read.is_read1 and read.tlen > 0 and read.rname == read.mrnm ) \
-                and not read.mate_is_unmapped and read.mapq > 10 and not read.is_secondary
+	return not read.is_unmapped and (read.is_reverse and not read.mate_is_reverse and read.is_read1 and read.tlen < 0 and read.rname == read.mrnm) or \
+	            (not read.is_reverse and read.mate_is_reverse and read.is_read1 and read.tlen > 0 and read.rname == read.mrnm ) \
+	            and not read.mate_is_unmapped and read.mapq > 10 and not read.is_secondary
+	    #print read.tlen, read.pos, read.mpos
+	#if read.mapq <=10:
+	#		print read.tlen 
+	# return (read.is_reverse and not read.mate_is_reverse and read.is_read1 and read.tlen < 0 and read.rname == read.mrnm) or \
+ #                (not read.is_reverse and read.mate_is_reverse and read.is_read1 and read.tlen > 0 and read.rname == read.mrnm ) \
+ #                and not read.mate_is_unmapped and read.mapq > 10 and not read.is_secondary
 
 def ReadInContigseqs(contigfile,contig_filter_length):
     cont_dict = {}
