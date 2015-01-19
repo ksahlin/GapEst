@@ -391,7 +391,7 @@ def AdjustInsertsizeDist(mean_insert, std_dev_insert, insert_list):
         return(False, filtered_list)
 
 
-def calc_p_values(bam,outfile,param, info_file,assembly_dict):
+def calc_p_values(bam,outfile,param,assembly_dict):
 
 	p_values = []
 
@@ -402,7 +402,6 @@ def calc_p_values(bam,outfile,param, info_file,assembly_dict):
 	scaf_dict = dict(zip(bam.references, reference_lengths))
 	bam_filtered = ifilter(lambda r: r.flag <= 200, bam)
 	current_scaf = -1
-	print >> info_file, scaf_dict
 	param.scaf_lengths = scaf_dict
 	prev_coord = (0,0)
 	duplicate_count = 0
@@ -423,16 +422,16 @@ def calc_p_values(bam,outfile,param, info_file,assembly_dict):
 
 		if (i + 1) %100000 == 0:
 			# print i
-			print >> info_file, '#Processing read:{0}'.format(current_coord)
+			print '#Processing read:{0}'.format(current_coord)
 			
 		if (i+1) % 100000 == 0:
-			print >> info_file, '#removed {0} duplicates, processed {1} reads.'.format(duplicate_count,i)
+			print '#removed {0} duplicates, processed {1} reads.'.format(duplicate_count,i)
 		# # # 	print 'extra!'
 		# 	break
 
 		# initialize read container for new scaffold
 		if current_ref != current_scaf:
-			print >> info_file, current_ref
+			print current_ref
 			container = []
 			scaf_length = scaf_dict[current_ref]
 
@@ -446,7 +445,7 @@ def calc_p_values(bam,outfile,param, info_file,assembly_dict):
 		# 1.5*param.mean from the position of interest. First we can safely remove anything
 		# bigger than 3*param.mean (because at least one read of this read pair
 		# is going to be further away than 1.5*mean from the position of interest in this read pair )
-		if is_proper_aligned_unique_innie(read): # and abs(read.tlen) <= 3*param.mean:
+		if is_proper_aligned_unique_innie(read) and abs(read.tlen) <= self.max_isize:
 			if read.aend >= scaf_length or read.aend < 0 or read.mpos +read.rlen > scaf_length or read.pos < 0:
 				print 'Read coordinates outside scaffold length for {0}:'.format(current_scaf), read.aend, read.aend, read.mpos +read.rlen, read.pos 
 				continue
@@ -644,12 +643,13 @@ def scan_bam(bam_file, assembly_file, outfolder):
 	with pysam.Samfile(bam_file, 'rb') as bam:
 		#sample true distribution
 		param.sample_distribution(bam, info_file)
+		info_file.close()
 		# read in contig sequences
 		assembly_dict = ReadInContigseqs(open(assembly_file,'r'),param.max_isize)
 		# calculate palues over each base pair
-		calc_p_values(bam, pval_file_out, param, info_file,assembly_dict)
+		calc_p_values(bam, pval_file_out, param, info_file, assembly_dict)
 	pval_file_out.close()
-	info_file.close()
+	
 
 
 def cluster_pvals(outfolder ,assembly_file, p_val_threshold, window_size):
