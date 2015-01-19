@@ -445,7 +445,7 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 		# 1.5*param.mean from the position of interest. First we can safely remove anything
 		# bigger than 3*param.mean (because at least one read of this read pair
 		# is going to be further away than 1.5*mean from the position of interest in this read pair )
-		if is_proper_aligned_unique_innie(read) and abs(read.tlen) <= self.max_isize:
+		if is_proper_aligned_unique_innie(read) and abs(read.tlen) <= param.max_isize:
 			if read.aend >= scaf_length or read.aend < 0 or read.mpos +read.rlen > scaf_length or read.pos < 0:
 				print 'Read coordinates outside scaffold length for {0}:'.format(current_scaf), read.aend, read.aend, read.mpos +read.rlen, read.pos 
 				continue
