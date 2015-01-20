@@ -23,7 +23,7 @@ from collections import deque
 #import matplotlib.pyplot as plt
 from statsmodels.distributions.empirical_distribution import ECDF
 
-EMPIRICAL_BINS = 200
+EMPIRICAL_BINS = 500
 SAMPLE_SIZE = 500000  # for estimating true full read pair distribution
 
 def is_proper_aligned_unique_innie(read):
@@ -94,7 +94,6 @@ class Parameters(object):
 		#i = 0
 		bam_filtered = ifilter(lambda r: is_proper_aligned_unique_innie(r), bamfile)
 		read_lengths = []
-		#while i <= sample_size:
 		for sample_nr,read in enumerate(bam_filtered):
 	   		## add do insert size distribution calculation if proper pair
 			if is_proper_aligned_unique_innie(read):
@@ -230,18 +229,18 @@ class Parameters(object):
 		softclipps = int(self.read_length*0.6)
 
 
-		x_min = max(2*(read_len-softclipps) , int(self.mean - 5*self.stddev) )
-		x_max = int(self.mean + 5*self.stddev)
-		stepsize =  (x_max - x_min) / EMPIRICAL_BINS
-		cdf_list = [ self.full_ECDF( x_min) * self.get_weight(x_min, gap_coordinates, read_len, softclipps)  ] #[ self.full_ECDF( 2*(read_len-softclipps)) * self.get_weight(2*(read_len-softclipps), gap_coordinates, read_len, softclipps) ]
+		x_min = self.min_isize #max(2*(read_len-softclipps) , int(self.mean - 5*self.stddev) )
+		x_max = self.max_isize #int(self.mean + 5*self.stddev)
+		stepsize =  max(1,(x_max - x_min) / EMPIRICAL_BINS)
+		#print (x_max - x_min)/float(EMPIRICAL_BINS)
+		cdf_list = [ self.full_ECDF( x_min) * self.get_weight(int(round(x_min+stepsize/2.0,0)), gap_coordinates, read_len, softclipps)  ] #[ self.full_ECDF( 2*(read_len-softclipps)) * self.get_weight(2*(read_len-softclipps), gap_coordinates, read_len, softclipps) ]
 
 
 		# create weigted (true) distribution
 
 		for x in range( x_min + stepsize , x_max, stepsize):
-			increment_area = self.get_weight(x,gap_coordinates, read_len, softclipps) * (self.full_ECDF(x) - self.full_ECDF(x-stepsize))
+			increment_area = self.get_weight(int((x+stepsize/2)),gap_coordinates, read_len, softclipps) * (self.full_ECDF(x) - self.full_ECDF(x-stepsize))
 			cdf_list.append( cdf_list[-1] + increment_area)
-		# cdf_list = [self.get_weight(x,gap_coordinates, read_len, softclipps) * (self.full_ECDF(x) - self.full_ECDF(x-stepsize)) ]
 
 		#print 'stepsize:', stepsize
 		#print 'BINS:',len(cdf_list)
@@ -250,8 +249,8 @@ class Parameters(object):
 
 		# Now create a weighted sample
 
-		self.true_distr = [ (bisect.bisect(cdf_list_normalized, random.uniform(0, 1) ) - 1)*stepsize + x_min for i in range(1000) ]
-
+		self.true_distr = [ bisect.bisect(cdf_list_normalized, random.uniform(0, 1)) * stepsize  + x_min for i in range(1000) ]
+		print len(self.true_distr)
 		# initialization of no gap true distribution
 		if not gap_coordinates:
 			print 'getting initial gap free distr.'
