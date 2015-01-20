@@ -132,7 +132,9 @@ class Parameters(object):
 		self.stddev = std_dev_isize 
 		self.full_ECDF = ECDF(isize_list)
 		self.adjustedECDF_no_gap = None
-		self.adjustedECDF_no_gap = self.get_correct_ECDF(outfile, [])
+		self.adjustedECDF_no_gap = self.get_correct_ECDF([])
+		print >> outfile,'#Corrected mean:{0}, corrected stddev:{1}'.format(self.adjusted_mean, self.adjusted_stddev)
+		print >> outfile,'{0}\t{1}'.format(self.adjusted_mean, self.adjusted_stddev)
 		#self.get_true_normal_distribution(random.sample(isize_list, min(10000,sample_nr)),outfile)
 
 
@@ -220,7 +222,7 @@ class Parameters(object):
 		
 		return 
 
-	def get_correct_ECDF(self,outfile, gap_coordinates):
+	def get_correct_ECDF(self, gap_coordinates):
 		if not gap_coordinates and self.adjustedECDF_no_gap:
 			return self.adjustedECDF_no_gap
 
@@ -260,11 +262,6 @@ class Parameters(object):
 		self.adjusted_mean = sum(self.true_distr)/float(len(self.true_distr))
 		self.adjusted_stddev = (sum(list(map((lambda x: x ** 2 - 2 * x * self.adjusted_mean + self.adjusted_mean ** 2), self.true_distr))) / (n - 1)) ** 0.5
 
-		print >> outfile,'#Corrected mean:{0}, corrected stddev:{1}'.format(self.adjusted_mean, self.adjusted_stddev)
-		print >> outfile,'{0}\t{1}'.format(self.adjusted_mean, self.adjusted_stddev)
-		#print 'Corrected mean:{0}, corrected stddev:{1}, gap_coordinates: {2}'.format(self.adjusted_mean, self.adjusted_stddev, gap_coordinates)
-
-		#print >> outfile,'Corrected mean:{0}, corrected stddev:{1}, gap_coordinates: {2}'.format(self.adjusted_mean, self.adjusted_stddev, gap_coordinates)
 		return self.true_distr
 
 class ReadContainer(object):
@@ -513,7 +510,7 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 				for m in p.finditer(sequence_in_window):
 					gap_coordinates.append((m.start() - int(1.5*param.mean) ,m.end() - int(1.5*param.mean) ))
 
-				true_distribution = param.get_correct_ECDF(outfile, gap_coordinates)
+				true_distribution = param.get_correct_ECDF(gap_coordinates)
 				container[-1].calc_observed_insert()
 				KS_statistic, two_side_p_val = container[-1].calc_ks_test(true_distribution) 
 
