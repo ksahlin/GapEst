@@ -5,7 +5,7 @@ Created on Sep 18, 2013
 '''
 
 import argparse
-import os
+import os #,sys
 from mathstats.normaldist.normal import MaxObsDistr
 from scipy.stats import ks_2samp,norm
 import random
@@ -103,7 +103,7 @@ class Parameters(object):
 			if sample_nr > SAMPLE_SIZE:
 				break
 		print >> outfile, '#Insert size sample size:', sample_nr
-		bamfile.reset()
+		#bamfile.reset()
 
 		self.read_length = sum(read_lengths)/float(len(read_lengths))
 		isize_list = filter(lambda x: 0 < x - 2*self.read_length,isize_list)
@@ -252,6 +252,9 @@ class Parameters(object):
 		# Now create a weighted sample
 
 		self.true_distr = [ bisect.bisect(cdf_list_normalized, random.uniform(0, 1)) * stepsize  + x_min for i in range(1000) ]
+		#plt.hist(self.true_distr,bins=50) 
+		#plt.show()
+
 		print len(self.true_distr)
 		# initialization of no gap true distribution
 		if not gap_coordinates:
@@ -651,7 +654,9 @@ def scan_bam(bam_file, assembly_file, outfolder):
 	pval_file_out = open(os.path.join(args.outfolder,'p_values.txt'),'w')
 	with pysam.Samfile(bam_file, 'rb') as bam:
 		#sample true distribution
-		param.sample_distribution(bam, info_file)
+		bam_filtered = ifilter(lambda r: r.flag <= 200, bam)
+		param.sample_distribution(bam_filtered, info_file)
+		bam.reset()
 		info_file.close()
 		# read in contig sequences
 		assembly_dict = ReadInContigseqs(open(assembly_file,'r'),param.max_isize)
