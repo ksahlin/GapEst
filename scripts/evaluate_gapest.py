@@ -218,8 +218,8 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
                 
                 # if c1_len < 2000 and c2_len < 2000:
                 #     continue
-                if c1_len < 500 and c2_len < 500:
-                    continue
+                # if c1_len < 500 and c2_len < 500:
+                #     continue
 
 
                 # if line.split()[4].strip()[:2] == 'w1' or line.split()[4].strip()[:2] == 'w3':
