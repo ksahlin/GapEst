@@ -5,7 +5,7 @@ Created on Sep 18, 2013
 '''
 
 import argparse
-import os #,sys
+import os,sys
 from mathstats.normaldist.normal import MaxObsDistr
 from scipy.stats import ks_2samp,norm
 import random
@@ -24,12 +24,15 @@ from collections import deque
 from statsmodels.distributions.empirical_distribution import ECDF
 
 EMPIRICAL_BINS = 500
-SAMPLE_SIZE = 500000  # for estimating true full read pair distribution
+SAMPLE_SIZE = 5000000  # for estimating true full read pair distribution
 
 def is_proper_aligned_unique_innie(read):
-	return not read.is_unmapped and (read.is_reverse and not read.mate_is_reverse and read.is_read1 and read.tlen < 0 and read.rname == read.mrnm) or \
-	            (not read.is_reverse and read.mate_is_reverse and read.is_read1 and read.tlen > 0 and read.rname == read.mrnm ) \
-	            and not read.mate_is_unmapped and read.mapq > 10 and not read.is_secondary
+	return not read.is_unmapped and \
+				(read.is_reverse and not read.mate_is_reverse and read.is_read1 and read.tlen < 0 ) or \
+	            (not read.is_reverse and read.mate_is_reverse and read.is_read1 and read.tlen > 0 ) \
+				or (read.is_reverse and not read.mate_is_reverse and read.is_read2 and read.tlen < 0 ) or \
+				(not read.is_reverse and read.mate_is_reverse and read.is_read2 and read.tlen > 0 ) \
+	            and not read.mate_is_unmapped and read.mapq > 10 and not read.is_secondary and read.rname == read.mrnm 
 	    #print read.tlen, read.pos, read.mpos
 	#if read.mapq <=10:
 	#		print read.tlen 
@@ -131,6 +134,8 @@ class Parameters(object):
 		self.mean = mean_isize
 		self.stddev = std_dev_isize 
 		self.full_ECDF = ECDF(isize_list)
+		#plt.hist(isize_list,bins=100) 
+		#plt.show()
 		self.adjustedECDF_no_gap = None
 		self.adjustedECDF_no_gap = self.get_correct_ECDF([])
 		print >> outfile,'#Corrected mean:{0}, corrected stddev:{1}'.format(self.adjusted_mean, self.adjusted_stddev)
@@ -228,7 +233,7 @@ class Parameters(object):
 
 
 		read_len = int(self.read_length)
-		softclipps = int(self.read_length*0.6)
+		softclipps = read_len #int(self.read_length*0.6)
 
 
 		x_min = self.min_isize #max(2*(read_len-softclipps) , int(self.mean - 5*self.stddev) )
@@ -247,6 +252,7 @@ class Parameters(object):
 		#print 'stepsize:', stepsize
 		#print 'BINS:',len(cdf_list)
 		tot_cdf = cdf_list[-1]
+
 		cdf_list_normalized = map(lambda x: x /float(tot_cdf),cdf_list)
 
 		# Now create a weighted sample
@@ -304,6 +310,17 @@ class ReadContainer(object):
 
 
 	def calc_ks_test(self,true_distribution):
+		# if len(self.isize_list) == 903 and self.position > 10000:
+		# 	plt.hist(self.isize_list,bins=50) 
+		# 	KS_statistic, self.pval = ks_2samp(self.isize_list, true_distribution)
+		# 	print sorted(true_distribution)
+		# 	print sorted(self.isize_list)
+		# 	print sum(true_distribution)/float(len(true_distribution))
+		# 	print sum(self.isize_list)/float(len(self.isize_list))
+		# 	print KS_statistic, self.pval
+		# 	print self.position
+		# 	plt.show()
+		# 	sys.exit()
 		if len(self.isize_list) >= 5:
 			KS_statistic, self.pval = ks_2samp(self.isize_list, true_distribution)
 			return KS_statistic, self.pval 
@@ -413,7 +430,7 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 	param.scaf_lengths = scaf_dict
 	prev_coord = (0,0)
 	duplicate_count = 0
-
+	visited = set()
 	for i,read in enumerate(bam_filtered):
 		if read.is_unmapped:
 			continue
@@ -458,6 +475,11 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 		# 1.5*param.mean from the position of interest. First we can safely remove anything
 		# bigger than 3*param.mean (because at least one read of this read pair
 		# is going to be further away than 1.5*mean from the position of interest in this read pair )
+		if read.qname in visited:
+			print read.tlen
+			print read.qname
+			visited.remove(read.qname) # we have visited both in pair
+			continue
 		if is_proper_aligned_unique_innie(read) and (param.min_isize <= abs(read.tlen) <= param.max_isize):
 			if read.aend >= scaf_length or read.aend < 0 or read.mpos +read.rlen > scaf_length or read.pos < 0:
 				print 'Read coordinates outside scaffold length for {0}:'.format(current_scaf), read.aend, read.aend, read.mpos +read.rlen, read.pos 
@@ -480,9 +502,11 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 				for pos in range(inner_start_pos + excluded_region_size, inner_end_pos - excluded_region_size):
 					try:
 						container[scaf_length - pos].add_read(read)
+
 					#container[pos].add_read(read2)
 					except IndexError:
 						pass
+						#print read.tlen
 						#print 'Tried adding read pair to position {0}. On scaffold {1} with length {2}, with container of size {3}'.format(pos, current_scaf, scaf_length, len(container)) 
 			else:
 
@@ -493,10 +517,11 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 						container[scaf_length - pos].add_read(read)
 					except IndexError:
 						pass
+						#print read.tlen
 						#print 'Tried adding read pair to position {0}. On scaffold {1} with length {2}, with container of size {3}'.format(pos, current_scaf, scaf_length, len(container)) 
 
 					#container[pos].add_read(read2)
-
+			visited.add(read.qname)
 		# write positions out to file
 		if  current_coord > scaf_length - len(container):
 
