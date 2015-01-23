@@ -233,7 +233,7 @@ class Parameters(object):
 
 
 		read_len = int(self.read_length)
-		softclipps = read_len #int(self.read_length*0.6)
+		softclipps = 0 #read_len #int(self.read_length*0.6)
 
 
 		x_min = self.min_isize #max(2*(read_len-softclipps) , int(self.mean - 5*self.stddev) )
@@ -476,8 +476,8 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 		# bigger than 3*param.mean (because at least one read of this read pair
 		# is going to be further away than 1.5*mean from the position of interest in this read pair )
 		if read.qname in visited:
-			print read.tlen
-			print read.qname
+			#print read.tlen
+			#print read.qname
 			visited.remove(read.qname) # we have visited both in pair
 			continue
 		if is_proper_aligned_unique_innie(read) and (param.min_isize <= abs(read.tlen) <= param.max_isize):
