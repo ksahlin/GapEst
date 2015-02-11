@@ -40,10 +40,14 @@ def simulate_instance(args):
     else:
         g = genome.Genome([0.25]*4,args.genomelen,'genome1')
         #print genome_path, args.genomelen
+        longest_seq = 0
         for acc,seq in  fasta.fasta_iter(open(genome_path,'r')):
-            #print acc, seq
-            g.sequence = seq
-            g.accession = acc
+            print acc, len(seq)
+            if len(seq) > longest_seq:
+                g.sequence = seq
+                g.accession = acc
+                longest_seq = len(seq)
+        print 'chosen:',g.accession
     #ctgs.write('>ctg0\n{0}\n'.format(g.sequence[0:args.burnin]))
     #for i,x in enumerate(range(args.burnin,args.genomelen,(args.contiglen + args.gaplen))):
     #	ctgs.write('>ctg{0}\n{1}\n'.format(i+1,g.sequence[x:x+args.contiglen]))
@@ -78,7 +82,7 @@ def simulate_instance(args):
     #print 'Started mapping'
     #mapping
     #align.map_paired_reads(read1_path, read2_path, contig_path, bam_path, args)
-    align.bwa_mem(read1_path, read2_path, contig_path, bam_path, args)
+    align.bwa_mem(read1_path, read2_path, genome_path, bam_path, args)
 
 def main(args):
     successful_experiments = 0
@@ -99,7 +103,7 @@ if __name__ == '__main__':
     parser.add_argument('min_contig', type=int, help='Length of contigs. ')
     parser.add_argument('max_contig', type=int, help='Length of contigs. ')
     parser.add_argument('distr', type=str, help='Distribution of insert sizes. ')
-    parser.add_argument('coverage', type=int, help='Coverage. ')
+    parser.add_argument('coverage', type=float, help='Coverage. ')
     parser.add_argument('read_length', type=int, help='Length of read fragments within a pair. ')
     parser.add_argument('output_path', type=str, help='path to folder output. ')
     parser.add_argument( '-sort', dest='sort', action='store_true', default=False, help='Coordinate sort the reads in the bam file' )

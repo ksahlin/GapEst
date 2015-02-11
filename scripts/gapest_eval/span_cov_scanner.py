@@ -20,11 +20,11 @@ import bisect
 
 from collections import deque
 
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from statsmodels.distributions.empirical_distribution import ECDF
 
 EMPIRICAL_BINS = 500
-SAMPLE_SIZE = 5000000  # for estimating true full read pair distribution
+SAMPLE_SIZE = 50000  # for estimating true full read pair distribution
 
 def is_proper_aligned_unique_innie(read):
 	return not read.is_unmapped and \
@@ -134,8 +134,8 @@ class Parameters(object):
 		self.mean = mean_isize
 		self.stddev = std_dev_isize 
 		self.full_ECDF = ECDF(isize_list)
-		#plt.hist(isize_list,bins=100) 
-		#plt.show()
+		# plt.hist(isize_list,bins=200) 
+		# plt.show()
 		self.adjustedECDF_no_gap = None
 		self.adjustedECDF_no_gap = self.get_correct_ECDF([])
 		print >> outfile,'#Corrected mean:{0}, corrected stddev:{1}'.format(self.adjusted_mean, self.adjusted_stddev)
@@ -258,7 +258,7 @@ class Parameters(object):
 		# Now create a weighted sample
 
 		self.true_distr = [ bisect.bisect(cdf_list_normalized, random.uniform(0, 1)) * stepsize  + x_min for i in range(1000) ]
-		#plt.hist(self.true_distr,bins=50) 
+		#plt.hist(self.true_distr,bins=100) 
 		#plt.show()
 
 		print len(self.true_distr)
@@ -278,26 +278,24 @@ class ReadContainer(object):
 	def __init__(self, position):
 		super(ReadContainer, self).__init__()
 		self.position = position
-		self.reads = []
+		self.isize_list = []
 	def __str__(self):
 		"Prints reads on fasta format"
 		pass
-	def add_read(self,read):
-		self.reads.append(read)
+	# def add_isize(self,isize):
+	# 	self.reads.append(read)
 
-	def print_bam(self):
-		"Print reads on bam format "
+	# def print_bam(self):
+	# 	"Print reads on bam format "
 
 
 	def write_pval_to_file(self,outfile,ref_name):
 		print >> outfile, '{0}\t{1}\t{2}\t{3}\t{4}\t{5}'.format(ref_name, self.position, self.pval,len(self.isize_list), self.mean_isize, self.std_dev_isize)
 
 	def calc_observed_insert(self):
-		#print self.reads
-		#print 'list:',map(lambda x: x.tlen, self.reads )
 		self.mean_isize = 0
 		self.std_dev_isize = 0
-		self.isize_list = map(lambda x: x.tlen, self.reads )
+		# self.isize_list = map(lambda x: abs(x.tlen), self.reads )
 		#print len( self.isize_list)
 		if len( self.isize_list) <= 5:
 			self.mean_isize = -1
@@ -305,12 +303,11 @@ class ReadContainer(object):
 
 		n_isize = float(len(self.isize_list))
 		self.mean_isize = sum(self.isize_list)/n_isize
-		self.std_dev_isize =  (sum(list(map((lambda x: x ** 2 - 2 * x * self.mean_isize + self.mean_isize ** 2), self.isize_list))) / (n_isize - 1)) ** 0.5
-
+		self.std_dev_isize =  (sum(map((lambda x: x ** 2 - 2 * x * self.mean_isize + self.mean_isize ** 2), self.isize_list)) / (n_isize - 1)) ** 0.5
 
 
 	def calc_ks_test(self,true_distribution):
-		# if len(self.isize_list) == 903 and self.position > 10000:
+		# if len(self.isize_list) == 903 and self.position > 1000:
 		# 	plt.hist(self.isize_list,bins=50) 
 		# 	KS_statistic, self.pval = ks_2samp(self.isize_list, true_distribution)
 		# 	print sorted(true_distribution)
@@ -431,6 +428,7 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 	prev_coord = (0,0)
 	duplicate_count = 0
 	visited = set()
+	#observed_span_distribution = []
 	for i,read in enumerate(bam_filtered):
 		if read.is_unmapped:
 			continue
@@ -501,10 +499,12 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 				inner_end_pos = read.mpos
 				for pos in range(inner_start_pos + excluded_region_size, inner_end_pos - excluded_region_size):
 					try:
-						container[scaf_length - pos].add_read(read)
+						container[scaf_length - pos].isize_list.append(read.tlen) # .add_read(read)
 
 					#container[pos].add_read(read2)
 					except IndexError:
+						print pos, read.tlen
+						break
 						pass
 						#print read.tlen
 						#print 'Tried adding read pair to position {0}. On scaffold {1} with length {2}, with container of size {3}'.format(pos, current_scaf, scaf_length, len(container)) 
@@ -514,8 +514,10 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 				inner_end_pos = read.pos
 				for pos in range(inner_start_pos + excluded_region_size, inner_end_pos - excluded_region_size):
 					try:
-						container[scaf_length - pos].add_read(read)
+						container[scaf_length - pos].isize_list.append(abs(read.tlen)) #add_read(read)
 					except IndexError:
+						print pos, read.tlen
+						break
 						pass
 						#print read.tlen
 						#print 'Tried adding read pair to position {0}. On scaffold {1} with length {2}, with container of size {3}'.format(pos, current_scaf, scaf_length, len(container)) 
@@ -526,7 +528,6 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 		if  current_coord > scaf_length - len(container):
 
 			while scaf_length - len(container) < current_coord:
-
 				# get true distribution
 				if container[-1].position % 1000 == 0:
 					print 'position', container[-1].position
@@ -542,15 +543,25 @@ def calc_p_values(bam,outfile,param,assembly_dict):
 				container[-1].calc_observed_insert()
 				KS_statistic, two_side_p_val = container[-1].calc_ks_test(true_distribution) 
 
+				# if current_coord > 5000:
+				# 	for isize in container[-1].isize_list:
+				# 		observed_span_distribution.append(abs(isize))
+				# 	print KS_statistic, two_side_p_val, container[-1].mean_isize
 
 				# do ks_2_sample
 				if two_side_p_val > 0:
 					p_values.append(two_side_p_val)
+					#print container[-1].mean_isize
+					#print KS_statistic, two_side_p_val
 				# write chromosome, coord, p_val to file
 				container[-1].write_pval_to_file(outfile,current_ref)
 				del container[-1]
 
-
+			# if len(observed_span_distribution) > 1000000:
+			# 	print 'position', container[-1].position
+			# 	plt.hist(observed_span_distribution,bins=100) 
+			# 	plt.show()	
+			# 	sys.exit()			
 
 class Window(object):
 	"""docstring for Window"""

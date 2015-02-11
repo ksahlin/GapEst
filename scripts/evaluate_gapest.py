@@ -1,11 +1,11 @@
 import sys,os
 import matplotlib
-matplotlib.use('pdf')
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import random
 import numpy as np
-from src import CreateGraph_updated,GapCalculator
+from src import CreateGraph_updated,GapCalculator #,find_truncated_normal_parameters
 #import pandas as pd
 import pylab as P
 from scipy.stats import truncnorm
@@ -220,7 +220,7 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
                 
                 # if c1_len < 2000 and c2_len < 2000:
                 #     continue
-                # if c1_len < 500 and c2_len < 500:
+                # if c1_len < 1000 and c2_len < 1000:
                 #     continue
 
 
@@ -278,8 +278,8 @@ def GetGapDifference(true_gap_file,assembly_gap_file,assembler,outfolder):
     ## Dot plot ##
     x_axis_min, x_axis_max = min(map(lambda x: x, true)) - 100, max(map(lambda x: x, true)) + 100
     y_axis_min, y_axis_max = min(map(lambda x: x, est)) - 100, max(map(lambda x: x, est)) + 100
-    x_axis_min, x_axis_max =  -8000, 8000
-    y_axis_min, y_axis_max = -8000, 10500
+    x_axis_min, x_axis_max =  -1000, 8000
+    y_axis_min, y_axis_max = -1000, 8000
     #x_axis_min, x_axis_max =  -500, 4000
     #y_axis_min, y_axis_max = -500, 4000
     #color_range = range(0, max(nr_obs_list))
@@ -489,17 +489,28 @@ def ShuffleContigs(contigfile,assembler):
 def plot_insert_sizes(bamfile,outfile_path):
     bam_object = CreateGraph_updated.BamParser(bamfile)
     i_sizes = []
+    read_length = 101
     for read in bam_object.aligned_reads('bwa'):
-        if read.is_read1 and CreateGraph_updated.is_proper_aligned_unique_innie(read):
-            i_sizes.append(abs(read.tlen))
+        if (read.is_reverse and not read.mate_is_reverse and  read.tlen < 0 and read.rname == read.mrnm) or \
+                (not read.is_reverse and read.mate_is_reverse and read.is_read2 and read.tlen > 0 and read.rname == read.mrnm ) \
+                and not read.mate_is_unmapped and not read.is_unmapped and read.mapq > 10 and not read.is_secondary and read.is_read1:
+             if abs(read.tlen) >  2*read_length:
+                i_sizes.append(abs(read.tlen))               
 
+        # if read.is_read1 and CreateGraph_updated.is_proper_aligned_unique_innie(read):
+        #     print 'here'
+        #     if abs(read.tlen) >  2*read_length:
+        #         i_sizes.append(abs(read.tlen))
+    print len(i_sizes)
     filtered_observations = GapCalculator.remove_misalignments(i_sizes,10)
     n_isize = float(len(filtered_observations))
     mean_isize = sum(filtered_observations) / n_isize
     std_dev_isize = (sum(list(map((lambda x: x ** 2 - 2 * x * mean_isize + mean_isize ** 2), filtered_observations))) / (n_isize - 1)) ** 0.5
 
     print 'mean:{0}, sd:{1}'.format(mean_isize,std_dev_isize)
-    print truncnorm.fit(filtered_observations,0,7000,loc=0,scale=1)
+    low_bound = 2*read_length
+    #mu, sigma = find_truncated_normal_parameters.estimate_params_for_normal(filtered_observations, low_bound , mean_isize, std_dev_isize)
+    #print mu, sigma
     plt.hist(filtered_observations,bins=100)
     plt.ylabel('frequency') 
     plt.xlabel('fragment size')  

@@ -62,7 +62,7 @@ def remove_misalignments(sorted_observations,edge_support):
     #print '#Std_est converged: ', std_dev_isize
     return sorted_observations
 
-def GapEstimator(G,Contigs,Scaffolds,mean,sigma,effective_read_length,edge_support,bayesian, naive):
+def GapEstimator(G,Contigs,Scaffolds,mean,sigma,effective_read_length,edge_support,bayesian, naive, reinforced):
     ## effective_read_length is here that average effective_read_length minus max allowed softclipps (i.e. the smallest part that can be aligned)
     gap_mean=0
     gap_obs=0
@@ -91,6 +91,7 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,effective_read_length,edge_suppo
             c2_len=G.node[edge[1]]['length']
             obs_list=G.edge[edge[0]][edge[1]]['gap_dist']
             nr_links=G.edge[edge[0]][edge[1]]['nr_links']
+            min_obs_pos = min(map( lambda x: x[0], G.edge[edge[0]][edge[1]]['obs_pos']))
             #pre check for large deviations in obs list
             sorted_observations = sorted(obs_list)
             filtered_observations = remove_misalignments(sorted_observations,edge_support)
@@ -104,7 +105,19 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,effective_read_length,edge_suppo
                 
                 elif naive:
                     d_hat,stdErr = mean - int(sum(filtered_observations)/len(filtered_observations)), 0 
+                elif reinforced:
+                    n_isize = len(filtered_observations)
+                    o_mean = int(sum(filtered_observations)/n_isize)
+                    o_stddev = (sum(list(map((lambda x: x ** 2 - 2 * x * o_mean + o_mean ** 2), filtered_observations))) / (n_isize - 1)) ** 0.5
 
+                    d_hat,stddev_est = param_est.GapEstimator_reinforced(mean,sigma, effective_read_length, o_mean, o_stddev, c1_len, c2_len)
+                    d_hat = int(d_hat)
+                    stddev_est = int(stddev_est)
+                    # print 'ESTIMATED CONDITIONAL STDDEV: {0}, OBSERVED:{1}'.format( stddev_est, o_stddev)
+                    # if stddev_est > o_stddev:
+                    #     print 'Gap est:{0} -> stddev adjust would give higher gap estimation'.format(d_hat)
+                    # else:
+                    #     print 'Gap est:{0} -> stddev adjust would give lower gap estimation'.format(d_hat)
                 else:
                     o_mean = int(sum(filtered_observations)/len(filtered_observations))
                     d_hat = int(param_est.GapEstimator(mean,sigma, effective_read_length, o_mean, c1_len, c2_len))
@@ -112,11 +125,14 @@ def GapEstimator(G,Contigs,Scaffolds,mean,sigma,effective_read_length,edge_suppo
                     if d_hat > mean+3*sigma -2*effective_read_length :
                         #get average gap from subsampling
                         d_hat = subsample_gap_est(filtered_observations, mean, sigma, effective_read_length, c1_len, c2_len)
-
-                    smallest_obs = min(filtered_observations)
-                    # no negative observations
-                    if smallest_obs +  d_hat < 2*effective_read_length:
-                        d_hat = 2*effective_read_length - smallest_obs
+                    # no negative observations, we cannot have two contigs 
+                    # overlapping more that the smallest observation
+                    if d_hat <0 and -d_hat > min_obs_pos: 
+                        d_hat = 2*effective_read_length - min_obs_pos
+                    # smallest_obs = min(filtered_observations)
+                    # # no negative observations
+                    # if smallest_obs +  d_hat < 2*effective_read_length:
+                    #     d_hat = 2*effective_read_length - smallest_obs
 
                     #d_hat,stdErr=CalcMLvaluesOfdGeneral(filtered_observations,mean,sigma,effective_read_length,c1_len,c2_len,nr_links) 
               

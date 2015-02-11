@@ -30,11 +30,11 @@ def open_bam_file(bam_file_path):
 def is_proper_aligned_unique_innie(read):
     return (read.is_reverse and not read.mate_is_reverse and  read.tlen < 0 and read.rname == read.mrnm) or \
                 (not read.is_reverse and read.mate_is_reverse and read.is_read2 and read.tlen > 0 and read.rname == read.mrnm ) \
-                and not read.mate_is_unmapped and read.mapq > 10 and not read.is_secondary
+                and not read.mate_is_unmapped and not read.is_unmapped and read.mapq > 10 and not read.is_secondary
 def is_proper_aligned_unique_outie(read):
     return (read.is_reverse and not read.mate_is_reverse and  read.tlen > 0 and read.rname == read.mrnm) or \
                 (not read.is_reverse and read.mate_is_reverse and read.is_read2 and read.tlen < 0 and read.rname == read.mrnm ) \
-                and not read.mate_is_unmapped and read.mapq > 10 and not read.is_secondary
+                and not read.mate_is_unmapped and not read.is_unmapped and read.mapq > 10 and not read.is_secondary
 def is_unique_read_link(read):
     # if  not read.is_unmapped and not read.mate_is_unmapped and read.rname != read.mrnm \
     # and read.opt('XT')=='U' and not read.is_secondary and read.rlen != read.alen:
@@ -178,7 +178,8 @@ def PE(Contigs,Scaffolds,bamfile,mean,std_dev,scaffold_indexer,F,read_len):
                 if obs < mean+ 4*std_dev: 
                     links_used += 1
                     if (scaf2,scaf_side2) not in G[(scaf1,scaf_side1)]:
-                        G.add_edge((scaf2,scaf_side2),(scaf1,scaf_side1),nr_links=1,gap_dist=[obs],obs_pos=set((o1,o2)) )
+                        G.add_edge((scaf2,scaf_side2),(scaf1,scaf_side1),nr_links=1,gap_dist=[obs],obs_pos=set() )
+                        G[(scaf2,scaf_side2)][(scaf1,scaf_side1)]['obs_pos'].add((o1,o2))
                         if o1 < global_min_obs:
                             global_min_obs = o1
                         if o2 < global_min_obs:

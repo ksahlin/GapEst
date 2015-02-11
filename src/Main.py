@@ -27,7 +27,7 @@ def ReadInContigseqs(contigfile):
     cont_dict[accession]=temp
     return(cont_dict)
 
-def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev, bayesian, naive):
+def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev, bayesian, naive, reinforced):
     from time import time    
     tot_start=time()
 #create list of list f that will print all scaffolds, contiger in 
@@ -60,7 +60,7 @@ def Main(contigfile_,bamfile,mean,edge_support,read_len,ratio,std_dev, bayesian,
     
     read_length_minus_max_softclipps = read_length - max_softclipps
 
-    GC.GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length_minus_max_softclipps,edge_support,bayesian, naive)
+    GC.GapEstimator(G,Contigs,Scaffolds,mean,sigma,read_length,edge_support,bayesian, naive, reinforced)
 
 
 
@@ -98,6 +98,9 @@ if __name__ == '__main__':
     parser.add_option("--naive",dest="naive", default=False,
                       help="Solve naive gap estimation ",type="int")     
 
+    parser.add_option("--reinforced",dest="reinforced", default=False,
+                      help="Solve reinforced gap estimation ",action="store_true")     
+
     (options, args) = parser.parse_args()       
        
     if (options.naive and options.bayesian):
@@ -106,6 +109,6 @@ if __name__ == '__main__':
 
 
     #options.qacomputefile not needed yet, is not implemented yet
-    Main(options.contigfile,options.bamfiles,options.mean,options.edgesupport,options.readlen,options.relweight,options.stddev,options.bayesian, options.naive)
+    Main(options.contigfile,options.bamfiles,options.mean,options.edgesupport,options.readlen,options.relweight,options.stddev,options.bayesian, options.naive, options.reinforced)
         
         
